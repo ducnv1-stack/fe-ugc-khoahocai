@@ -10,7 +10,7 @@ export const useSocket = (onEvent?: (event: string, data: any) => void) => {
   useEffect(() => {
     // Khởi tạo connection
     const socket = io(SOCKET_URL, {
-      transports: ['websocket'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
