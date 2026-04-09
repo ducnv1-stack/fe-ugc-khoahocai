@@ -84,11 +84,11 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
+  --background: var(--custom-bg-dark, oklch(0.210 0.034 264.665)); /* slate-900 default */
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
+  --card: oklch(0.279 0.041 260.031); /* slate-800 */
   --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
+  --popover: oklch(0.279 0.041 260.031);
   --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
@@ -107,7 +107,7 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
+  --sidebar: var(--custom-sidebar-dark, oklch(0.279 0.041 260.031));
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
@@ -127,4 +127,51 @@
   html {
     @apply font-sans;
   }
+}
+
+@layer utilities {
+  .bg-grid-slate-200 {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(226 232 240 / 0.4)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+  }
+  .dark .bg-grid-slate-800\/25 {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='rgb(30 41 59 / 0.5)'%3e%3cpath d='M0 .5H31.5V32'/%3e%3c/svg%3e");
+  }
+}
+
+/* Smooth collapsible sidebar animation */
+@keyframes collapse-down {
+  from { height: 0; opacity: 0; }
+  to { height: var(--collapsible-panel-height); opacity: 1; }
+}
+
+@keyframes collapse-up {
+  from { height: var(--collapsible-panel-height); opacity: 1; }
+  to { height: 0; opacity: 0; }
+}
+
+.animate-collapse-down {
+  animation: collapse-down 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.animate-collapse-up {
+  animation: collapse-up 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-collapsible-panel {
+  overflow: hidden;
+  transition: height 300ms cubic-bezier(0.4, 0, 0.2, 1), opacity 300ms;
+}
+
+[data-state="collapsed"] .sidebar-collapsible-panel {
+  height: 0;
+  opacity: 0;
+}
+
+/* Custom Scrollbar */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
