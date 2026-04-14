@@ -114,7 +114,7 @@ export function AppSidebar() {
   return (
     <Sidebar variant="inset" collapsible="icon" className="border-r-0 bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl">
       {/* Logo Section */}
-      <SidebarHeader className="h-16 px-4 flex items-center justify-center overflow-hidden border-b border-sidebar-border/30">
+      <SidebarHeader className="h-14 px-3 flex items-center justify-center overflow-hidden border-b border-sidebar-border/30">
         <Link href="/dashboard" className="flex items-center gap-3 w-full group transition-all duration-300">
           <div className="shrink-0 w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-violet-600 flex items-center justify-center text-white font-bold text-sm shadow-lg shadow-blue-500/30 group-hover:scale-105 transition-transform">
             {systemName?.substring(0, 2).toUpperCase() || 'CS'}
@@ -132,7 +132,7 @@ export function AppSidebar() {
       <SidebarContent className="px-2 py-4">
         <SidebarGroup>
           {!isCollapsed && (
-            <SidebarGroupLabel className="px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-2">
+            <SidebarGroupLabel className="px-2 text-[9px] font-bold uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500 mb-1">
               Menu chính
             </SidebarGroupLabel>
           )}
@@ -164,7 +164,7 @@ export function AppSidebar() {
                             tooltip={item.title}
                             isActive={active}
                             className={cn(
-                              "h-10 px-3 rounded-xl transition-all duration-200 group/btn",
+                              "h-9 px-2.5 rounded-lg transition-all duration-200 group/btn",
                               active 
                                 ? "bg-blue-600/10 text-blue-600 font-bold dark:bg-blue-500/10 dark:text-blue-400" 
                                 : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
@@ -173,7 +173,7 @@ export function AppSidebar() {
                         }
                       >
                         <item.icon className={cn(
-                          "w-[18px] h-[18px] shrink-0 transition-colors",
+                          "w-4 h-4 shrink-0 transition-colors",
                           active ? "text-blue-600 dark:text-blue-400" : "group-hover/btn:text-slate-700 dark:group-hover/btn:text-slate-300"
                         )} />
                       </DropdownMenuTrigger>
@@ -216,17 +216,17 @@ export function AppSidebar() {
                     tooltip={item.title}
                     isActive={active}
                     className={cn(
-                      "h-10 px-3 rounded-xl transition-all duration-200 group/btn",
+                      "h-9 px-2.5 rounded-lg transition-all duration-200 group/btn",
                       active 
                         ? "bg-blue-600/10 text-blue-600 font-bold dark:bg-blue-500/10 dark:text-blue-400" 
                         : "hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400"
                     )}
                   >
                     <item.icon className={cn(
-                      "w-[18px] h-[18px] shrink-0 transition-colors",
+                      "w-4 h-4 shrink-0 transition-colors",
                       active ? "text-blue-600 dark:text-blue-400" : "group-hover/btn:text-slate-700 dark:group-hover/btn:text-slate-300"
                     )} />
-                    {!isCollapsed && <span className="text-[13.5px] ml-1">{item.title}</span>}
+                    {!isCollapsed && <span className="text-[12.5px] ml-1">{item.title}</span>}
                     {active && !isCollapsed && (
                       <div className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-600 animate-in zoom-in duration-300" />
                     )}
@@ -245,27 +245,27 @@ export function AppSidebar() {
           <DropdownMenuTrigger
             render={
               <SidebarMenuButton 
-                size="lg" 
-                className="w-full justify-start gap-3 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors px-2"
+                size="default" 
+                className="w-full justify-start gap-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors px-1"
               />
             }
           >
             <div className="relative shrink-0">
-              <Avatar className="h-9 w-9 rounded-xl border-2 border-white dark:border-slate-800 shadow-sm">
-                <AvatarFallback className="rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-xs font-bold">
+              <Avatar className="h-8 w-8 rounded-lg border border-white dark:border-slate-800 shadow-sm">
+                <AvatarFallback className="rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 text-white text-[10px] font-bold">
                   {user?.name?.charAt(0) || 'U'}
                 </AvatarFallback>
               </Avatar>
-              <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm" />
+              <div className="absolute -bottom-0 -right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border border-white dark:border-slate-900 shadow-sm" />
             </div>
             
             {!isCollapsed && (
               <div className="flex flex-col items-start overflow-hidden animate-in fade-in slide-in-from-left-2 duration-300">
-                <span className="text-[13px] font-bold text-slate-700 dark:text-slate-200 truncate w-32 text-left leading-none">{user?.name || 'User'}</span>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate w-32 text-left leading-none">{user?.name || 'User'}</span>
                 <span className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-1 opacity-70">{user?.role || 'Guest'}</span>
               </div>
             )}
-            {!isCollapsed && <MoreHorizontal className="ml-auto w-4 h-4 text-slate-300" />}
+            {!isCollapsed && <MoreHorizontal className="ml-auto w-3.5 h-3.5 text-slate-300" />}
           </DropdownMenuTrigger>
           <DropdownMenuContent side={isCollapsed ? "right" : "top"} align={isCollapsed ? "center" : "end"} className="min-w-56 mb-2 rounded-xl shadow-2xl border-sidebar-border/50 backdrop-blur-lg">
             <div className="px-2 py-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-50 dark:border-slate-800 mb-1 flex items-center gap-2">
@@ -310,7 +310,7 @@ function CollapsibleMenuItem({
               tooltip={item.title}
               isActive={isParentActive}
               className={cn(
-                "h-10 px-3 rounded-xl transition-all duration-200",
+                "h-9 px-2.5 rounded-lg transition-all duration-200",
                 isParentActive 
                   ? "bg-slate-50 text-blue-700 font-bold dark:bg-slate-800/50 dark:text-blue-400" 
                   : "text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50"
@@ -319,10 +319,10 @@ function CollapsibleMenuItem({
           }
         >
           <item.icon className={cn(
-            "w-[18px] h-[18px] shrink-0",
+            "w-4 h-4 shrink-0",
             isParentActive ? "text-blue-600 dark:text-blue-400" : "text-slate-400"
           )} />
-          <span className="text-[13.5px] ml-1">{item.title}</span>
+          <span className="text-[12.5px] ml-1">{item.title}</span>
           <ChevronDown 
             className={cn(
               "ml-auto w-3.5 h-3.5 text-slate-300 transition-transform duration-300 ease-in-out",
@@ -339,7 +339,7 @@ function CollapsibleMenuItem({
                   <Link
                     href={sub.href}
                     className={cn(
-                      "flex items-center h-8 px-3 rounded-lg text-[12.5px] transition-all duration-200",
+                      "flex items-center h-7 px-2 rounded-lg text-xs transition-all duration-200",
                       subActive
                         ? "bg-blue-600/5 text-blue-600 font-bold dark:text-blue-400"
                         : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50"

@@ -10,6 +10,12 @@ const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL
 
 export const useSocket = (onEvent?: (event: string, data: any) => void) => {
   const socketRef = useRef<Socket | null>(null);
+  const callbackRef = useRef(onEvent);
+
+  // Cập nhật ref mỗi khi callback thay đổi
+  useEffect(() => {
+    callbackRef.current = onEvent;
+  }, [onEvent]);
 
   useEffect(() => {
     // Khởi tạo connection
@@ -30,18 +36,18 @@ export const useSocket = (onEvent?: (event: string, data: any) => void) => {
       console.log('Disconnected from WebSocket server');
     });
 
-    // Lắng nghe mọi event nếu có callback
-    if (onEvent) {
-      socket.onAny((event, data) => {
-        onEvent(event, data);
-      });
-    }
+    // Lắng nghe mọi event thông qua ref
+    socket.onAny((event, data) => {
+      if (callbackRef.current) {
+        callbackRef.current(event, data);
+      }
+    });
 
     // Cleanup khi unmount
     return () => {
       socket.disconnect();
     };
-  }, []); // Chỉ chạy 1 lần khi mount
+  }, []); // Kết nối WebSocket chỉ khởi tạo 1 lần
 
   return socketRef.current;
 };

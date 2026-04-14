@@ -65,130 +65,128 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 pb-10">
       <div>
-        <h2 className="text-2xl font-bold tracking-tight">Cài đặt hệ thống</h2>
-        <p className="text-muted-foreground mt-1">Quản lý cấu hình, giao diện và các tuỳ chọn mặc định của hệ thống.</p>
+        <h2 className="text-lg font-bold tracking-tight text-slate-800 flex items-center gap-2">
+          <SettingsIcon className="w-5 h-5 text-primary" />
+          Cài đặt hệ thống
+        </h2>
+        <p className="text-slate-400 mt-0.5 text-[10px] uppercase font-medium tracking-wide">Tùy chỉnh cấu hình & giao diện</p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Palette className="w-5 h-5 text-blue-500" />
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card className="border border-slate-100 shadow-sm rounded-xl overflow-hidden">
+          <CardHeader className="p-3 px-4 bg-slate-50/50 border-b">
+            <CardTitle className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tight">
+              <Palette className="w-3.5 h-3.5 text-blue-500" />
               Giao diện & Màu sắc
             </CardTitle>
-            <CardDescription>Tuỳ chỉnh màu sắc và chế độ sáng/tối</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Chế độ hiển thị (Dark Mode)</label>
-              <div className="flex gap-4">
+          <CardContent className="p-4 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-600">Chế độ hiển thị</label>
+              <div className="flex gap-2">
                 <button
                   onClick={() => setTheme('light')}
-                  className={`px-4 py-2 rounded-md border ${theme === 'light' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${theme === 'light' ? 'border-primary bg-primary/5 text-primary font-bold shadow-sm' : 'hover:bg-slate-50 text-slate-500'}`}
                 >
-                  Sáng (Light)
+                  Sáng
                 </button>
                 <button
                   onClick={() => setTheme('dark')}
-                  className={`px-4 py-2 rounded-md border ${theme === 'dark' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${theme === 'dark' ? 'border-primary bg-primary/5 text-primary font-bold shadow-sm' : 'hover:bg-slate-50 text-slate-500'}`}
                 >
-                  Tối (Dark)
+                  Tối
                 </button>
                 <button
                   onClick={() => setTheme('system')}
-                  className={`px-4 py-2 rounded-md border ${theme === 'system' ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                  className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${theme === 'system' ? 'border-primary bg-primary/5 text-primary font-bold shadow-sm' : 'hover:bg-slate-50 text-slate-500'}`}
                 >
-                  Hệ thống
+                  Auto
                 </button>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <label className="text-sm font-medium">Chọn hệ màu</label>
+            <div className="space-y-3 pt-2">
+              <label className="text-[11px] font-bold text-slate-600">Hệ màu UI</label>
               
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 p-2 rounded-lg border border-slate-50">
                 <input 
                   type="color" 
                   value={colors.primary}
                   onChange={(e) => setColors({...colors, primary: e.target.value})}
-                  className="w-10 h-10 rounded cursor-pointer border-0 p-0"
-                  aria-label="Màu chủ đạo"
+                  className="w-7 h-7 rounded-lg cursor-pointer border-0 p-0 overflow-hidden"
                 />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">Màu chủ đạo</span>
-                  <span className="font-mono text-xs uppercase text-muted-foreground">{colors.primary}</span>
+                  <span className="text-[11px] font-bold text-slate-700">Màu chủ đạo</span>
+                  <span className="font-mono text-[9px] uppercase text-slate-400">{colors.primary}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 p-2 rounded-lg border border-slate-50">
                 <input 
                   type="color" 
                   value={colors.sidebarDark}
                   onChange={(e) => setColors({...colors, sidebarDark: e.target.value})}
-                  className="w-10 h-10 rounded cursor-pointer border-0 p-0"
-                  aria-label="Màu Sidebar (Tối)"
+                  className="w-7 h-7 rounded-lg cursor-pointer border-0 p-0 overflow-hidden"
                 />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">Màu Sidebar (Tối)</span>
-                  <span className="font-mono text-xs uppercase text-muted-foreground">{colors.sidebarDark}</span>
+                  <span className="text-[11px] font-bold text-slate-700">Sidebar (Tối)</span>
+                  <span className="font-mono text-[9px] uppercase text-slate-400">{colors.sidebarDark}</span>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 p-2 rounded-lg border border-slate-50">
                 <input 
                   type="color" 
                   value={colors.bgDark}
                   onChange={(e) => setColors({...colors, bgDark: e.target.value})}
-                  className="w-10 h-10 rounded cursor-pointer border-0 p-0"
-                  aria-label="Màu nền (Tối)"
+                  className="w-7 h-7 rounded-lg cursor-pointer border-0 p-0 overflow-hidden"
                 />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium">Màu nền chính (Tối)</span>
-                  <span className="font-mono text-xs uppercase text-muted-foreground">{colors.bgDark}</span>
+                  <span className="text-[11px] font-bold text-slate-700">Nền chính (Tối)</span>
+                  <span className="font-mono text-[9px] uppercase text-slate-400">{colors.bgDark}</span>
                 </div>
               </div>
             </div>
             
             <button 
               onClick={handleSaveTheme}
-              className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition-colors"
+              className="w-full mt-2 h-8 bg-primary hover:bg-primary/90 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
             >
-              Lưu giao diện
+              Lưu cấu hình giao diện
             </button>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Building className="w-5 h-5 text-indigo-500" />
+        <Card className="border border-slate-100 shadow-sm rounded-xl overflow-hidden self-start">
+          <CardHeader className="p-3 px-4 bg-slate-50/50 border-b">
+            <CardTitle className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-tight">
+              <Building className="w-3.5 h-3.5 text-indigo-500" />
               Thông tin chung
             </CardTitle>
-            <CardDescription>Tên hệ thống, logo công ty</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-             <div className="space-y-2">
-              <label className="text-sm font-medium">Tên hệ thống</label>
+          <CardContent className="p-4 space-y-4">
+             <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-600">Tên hệ thống</label>
               <input 
                 type="text" 
-                className="w-full p-2 border rounded-md bg-transparent" 
+                className="w-full h-8 px-3 text-xs border rounded-lg bg-transparent focus:ring-1 focus:ring-primary outline-none" 
                 value={systemName}
                 onChange={(e) => setSystemName(e.target.value)}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Logo</label>
-              <div className="h-20 w-20 border-2 border-dashed rounded-lg flex items-center justify-center text-muted-foreground bg-slate-50 dark:bg-slate-900 cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800">
-                Upload
+            <div className="space-y-1.5">
+              <label className="text-[11px] font-bold text-slate-600">Logo</label>
+              <div className="h-14 w-14 border border-dashed rounded-lg flex items-center justify-center text-[10px] font-medium text-slate-400 bg-slate-50 dark:bg-slate-900 cursor-pointer hover:bg-slate-100 transition-colors">
+                Tải lên
               </div>
             </div>
             <button 
               onClick={handleSaveGeneral}
-              className="px-4 py-2 bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 rounded-md text-sm font-medium transition-colors"
+              className="w-full h-8 bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 rounded-lg text-xs font-bold transition-all shadow-sm"
             >
-              Lưu thông tin
+              Lưu thông tin chung
             </button>
           </CardContent>
         </Card>

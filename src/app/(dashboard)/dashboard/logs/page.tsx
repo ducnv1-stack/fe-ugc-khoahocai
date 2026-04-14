@@ -155,24 +155,24 @@ export default function LogsPage() {
   };
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-4 pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <ShieldAlert className="w-6 h-6 text-primary" />
-            Báo cáo Kiểm toán (Audit Logs)
+          <h2 className="text-lg font-bold tracking-tight text-slate-800 flex items-center gap-2">
+            <ShieldAlert className="w-5 h-5 text-primary" />
+            Audit Logs (Kiểm toán)
           </h2>
-          <p className="text-muted-foreground mt-1">Ghi vết toàn bộ hành động nhạy cảm trên hệ thống (Sửa tiền, xóa dữ liệu,...).</p>
+          <p className="text-slate-400 mt-0.5 text-[10px] uppercase font-medium tracking-wide">Ghi vết hành động nhạy cảm trên hệ thống</p>
         </div>
       </div>
 
-      <Card className="border-none shadow-sm bg-white/50 backdrop-blur-sm">
-        <CardContent className="p-4">
+      <Card className="border border-slate-100 shadow-sm bg-white/50 backdrop-blur-sm rounded-xl">
+        <CardContent className="p-2 px-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
             <Input 
-              placeholder="Tìm theo Hành động, Người thực hiện, ID đối tượng..." 
-              className="pl-10 h-11 bg-white border-slate-200"
+              placeholder="Tìm hành động, nhân sự..." 
+              className="pl-8 h-8 text-xs bg-white border-slate-200"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -180,16 +180,16 @@ export default function LogsPage() {
         </CardContent>
       </Card>
 
-      <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
-        <Table>
+      <div className="rounded-xl border border-slate-100 bg-white shadow-sm overflow-hidden">
+        <Table className="text-[11px]">
           <TableHeader className="bg-slate-50/80">
             <TableRow>
-              <TableHead className="w-16">Icon</TableHead>
-              <TableHead>Thời gian</TableHead>
-              <TableHead>Người thực hiện</TableHead>
-              <TableHead>Hành động</TableHead>
-              <TableHead>Đối tượng</TableHead>
-              <TableHead className="max-w-[300px]">Chi tiết thay đổi (Cũ ➔ Mới)</TableHead>
+              <TableHead className="w-10 py-1.5 px-3 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Icon</TableHead>
+              <TableHead className="py-1.5 px-3 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Thời gian</TableHead>
+              <TableHead className="py-1.5 px-3 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Người thực hiện</TableHead>
+              <TableHead className="py-1.5 px-3 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Hành động</TableHead>
+              <TableHead className="py-1.5 px-3 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Đối tượng</TableHead>
+              <TableHead className="max-w-[300px] py-1.5 px-3 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Thay đổi</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -206,28 +206,30 @@ export default function LogsPage() {
               filteredLogs.map((log) => {
                  const display = getLogDisplayDetails(log);
                  return (
-                  <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors">
-                    <TableCell>
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ${display.iconBg}`}>
-                        {display.icon}
+                   <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                    <TableCell className="py-1.5 px-3">
+                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${display.iconBg}`}>
+                        {React.cloneElement(display.icon as React.ReactElement<any>, { className: 'w-3 h-3' })}
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-slate-500 font-medium">
-                      {new Date(log.createdAt).toLocaleString('vi-VN')}
+                    <TableCell className="text-[10px] text-slate-400 py-1.5 px-3 font-medium">
+                      {new Date(log.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })}
                     </TableCell>
-                    <TableCell>
-                      <p className="font-bold text-sm text-slate-900">{log.user?.name || 'Hệ thống'}</p>
-                      <p className="text-[11px] text-slate-500">{log.user?.email || 'N/A'}</p>
+                    <TableCell className="py-1.5 px-3">
+                      <p className="font-bold text-slate-700 leading-tight">{log.user?.name || 'Hệ thống'}</p>
+                      <p className="text-[10px] text-slate-400">{log.user?.email || 'N/A'}</p>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={display.badgeClass}>
+                    <TableCell className="py-1.5 px-3">
+                      <Badge variant="outline" className={`text-[9px] font-bold uppercase py-0 px-1.5 h-4 ${display.badgeClass}`}>
                         {display.title}
                       </Badge>
                     </TableCell>
-                    <TableCell>
-                      {getTargetDisplay(log)}
+                    <TableCell className="py-1.5 px-3">
+                      <div className="scale-90 origin-left">
+                        {getTargetDisplay(log)}
+                      </div>
                     </TableCell>
-                    <TableCell className="max-w-[300px]">
+                    <TableCell className="max-w-[300px] py-1.5 px-3 scale-90 origin-left">
                       {display.detailsComponent}
                     </TableCell>
                   </TableRow>

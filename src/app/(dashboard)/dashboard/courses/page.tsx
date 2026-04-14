@@ -71,15 +71,15 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Quản lý Khóa học</h2>
-          <p className="text-muted-foreground mt-1">Quản lý danh sách các khóa học đào tạo của bạn.</p>
+          <h2 className="text-xl font-bold tracking-tight">Quản lý Khóa học</h2>
+          <p className="text-xs text-muted-foreground mt-1">Quản lý danh sách các khóa học đào tạo của bạn.</p>
         </div>
         {canManage && (
-          <Button onClick={handleCreateNew}>
-            <Plus className="w-4 h-4 mr-2" />
+          <Button size="sm" className="h-8 text-xs" onClick={handleCreateNew}>
+            <Plus className="w-3.5 h-3.5 mr-1.5" />
             Thêm khóa học
           </Button>
         )}
@@ -87,30 +87,30 @@ export default function CoursesPage() {
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Tổng khóa học</CardTitle>
-            <Layers className="h-4 w-4 text-muted-foreground" />
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Tổng khóa học</CardTitle>
+            <Layers className="h-3.5 w-3.5 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalCourses}</div>
+          <CardContent className="pb-4">
+            <div className="text-xl font-bold text-slate-800">{totalCourses}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Khóa học Đang mở</CardTitle>
-            <BookOpen className="h-4 w-4 text-emerald-500" />
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Khóa học Đang mở</CardTitle>
+            <BookOpen className="h-3.5 w-3.5 text-emerald-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeCourses}</div>
+          <CardContent className="pb-4">
+            <div className="text-xl font-bold text-slate-800">{activeCourses}</div>
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Giá trị TB/Khóa</CardTitle>
-            <DollarSign className="h-4 w-4 text-blue-500" />
+          <CardHeader className="flex flex-row items-center justify-between pb-1 pt-4">
+            <CardTitle className="text-xs font-medium text-muted-foreground">Giá trị TB/Khóa</CardTitle>
+            <DollarSign className="h-3.5 w-3.5 text-blue-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(avgPrice)}</div>
+          <CardContent className="pb-4">
+            <div className="text-xl font-bold text-slate-800">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(avgPrice)}</div>
           </CardContent>
         </Card>
       </div>
@@ -118,14 +118,14 @@ export default function CoursesPage() {
       <Card>
         <div className="rounded-md border">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Mã khóa</TableHead>
-                <TableHead>Tên khóa học</TableHead>
-                <TableHead className="text-right">Thời lượng</TableHead>
-                <TableHead className="text-right">Đơn giá</TableHead>
-                <TableHead className="text-center">Trạng thái</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
+            <TableHeader className="bg-slate-50/80">
+              <TableRow className="h-9 hover:bg-transparent">
+                <TableHead className="py-1 text-[11px] font-bold">Mã khóa</TableHead>
+                <TableHead className="py-1 text-[11px] font-bold">Tên khóa học</TableHead>
+                <TableHead className="py-1 text-[11px] font-bold text-right">Thời lượng</TableHead>
+                <TableHead className="py-1 text-[11px] font-bold text-right">Đơn giá</TableHead>
+                <TableHead className="py-1 text-[11px] font-bold text-center">Trạng thái</TableHead>
+                <TableHead className="py-1 text-[11px] font-bold text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -137,26 +137,26 @@ export default function CoursesPage() {
                 </TableRow>
               ) : (
                 courses.map((course) => (
-                  <TableRow key={course.id}>
-                    <TableCell className="font-mono text-xs">{course.code}</TableCell>
-                    <TableCell className="font-medium">{course.name}</TableCell>
-                    <TableCell className="text-right">{course.duration} phút</TableCell>
-                    <TableCell className="text-right font-medium">
+                  <TableRow key={course.id} className="h-10 hover:bg-slate-50/50">
+                    <TableCell className="py-1.5 font-mono text-[11px] text-slate-500">{course.code}</TableCell>
+                    <TableCell className="py-1.5 font-bold text-xs text-slate-800">{course.name}</TableCell>
+                    <TableCell className="py-1.5 text-right text-xs text-slate-600">{course.duration} phút</TableCell>
+                    <TableCell className="py-1.5 text-right font-bold text-[11px]">
                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(course.price)}
                     </TableCell>
-                    <TableCell className="text-center">
-                      <Badge variant={course.status === 'ACTIVE' ? 'default' : 'secondary'} className={course.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500/20 shadow-none border-0' : ''}>
+                    <TableCell className="py-1.5 text-center">
+                      <Badge variant={course.status === 'ACTIVE' ? 'default' : 'secondary'} className={`text-[9px] px-1.5 py-0 h-4 ${course.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 shadow-none border-0' : ''}`}>
                         {course.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="py-1.5 text-right">
                       {canManage ? (
-                        <Button variant="ghost" size="icon" onClick={() => handleEdit(course)}>
-                          <Edit2 className="h-4 w-4" />
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-slate-500 hover:text-blue-600" onClick={() => handleEdit(course)}>
+                          <Edit2 className="h-3 h-3" />
                         </Button>
                       ) : (
                         <span title="Không có quyền chỉnh sửa">
-                          <AlertCircle className="inline-block h-4 w-4 text-muted-foreground/30" />
+                          <AlertCircle className="inline-block h-3.5 w-3.5 text-slate-300" />
                         </span>
                       )}
                     </TableCell>

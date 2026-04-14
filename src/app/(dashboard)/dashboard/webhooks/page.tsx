@@ -112,79 +112,79 @@ export default function WebhooksPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl pb-10">
+    <div className="space-y-4 max-w-6xl pb-10">
       <div className="flex justify-between items-end">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Cấu hình Webhooks</h2>
-          <p className="text-muted-foreground mt-1">
-            Tích hợp thanh toán tự động với SePay qua cổng Webhook.
+          <h2 className="text-lg font-bold tracking-tight text-slate-800 flex items-center gap-2">
+            <Webhook className="w-5 h-5 text-primary" />
+            Cấu hình Webhooks
+          </h2>
+          <p className="text-slate-400 mt-0.5 text-[10px] uppercase font-medium tracking-wide">
+            Tích hợp thanh toán tự động với SePay
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchLogs} disabled={logsLoading}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${logsLoading ? 'animate-spin' : ''}`} /> Làm mới Log
+        <Button variant="outline" size="sm" className="h-8 text-xs px-3" onClick={fetchLogs} disabled={logsLoading}>
+          <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${logsLoading ? 'animate-spin' : ''}`} /> Làm mới Log
         </Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           <Card className="border-none shadow-sm shadow-slate-200/50">
-            <CardHeader className="pb-3 border-b bg-slate-50/50">
+            <CardHeader className="p-3 px-4 border-b bg-slate-50/50">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="p-2 bg-blue-100 text-blue-700 rounded-lg">
-                    <Webhook className="w-5 h-5" />
+                  <div className="p-1.5 bg-blue-100 text-blue-700 rounded-lg">
+                    <Webhook className="w-4 h-4" />
                   </div>
                   <div>
-                    <CardTitle className="text-lg">Thông tin tích hợp</CardTitle>
-                    <CardDescription>Sử dụng các thông tin này để cấu hình trên SePay.</CardDescription>
+                    <CardTitle className="text-xs font-bold uppercase tracking-tight">Thông tin tích hợp</CardTitle>
+                    <p className="text-[9px] text-slate-400 font-medium tracking-tight">Cấu hình Webhook URL trên hệ thống SePay</p>
                   </div>
                 </div>
-                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">
-                  <RefreshCw className="w-3 h-3 mr-1" /> Đang hoạt động
+                <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-100 text-[8px] font-bold uppercase py-0 px-1.5">
+                  <RefreshCw className="w-2.5 h-2.5 mr-1" /> Active
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-              <div className="space-y-2">
-                <label className="text-sm font-semibold flex items-center gap-2">
+            <CardContent className="p-4 pt-5 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-600 flex items-center gap-2">
                   Webhook URL
-                  <Badge variant="secondary" className="text-[10px] h-4">POST</Badge>
+                  <Badge variant="secondary" className="text-[8px] h-3.5 px-1 font-bold">POST</Badge>
                 </label>
                 <div className="flex gap-2">
-                  <Input readOnly value={settings?.url} className="bg-slate-50 font-mono text-sm" />
-                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(settings?.url, 'url')}>
-                    {copiedUrl ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  <Input readOnly value={settings?.url} className="bg-slate-50 font-mono text-xs h-8" />
+                  <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(settings?.url, 'url')}>
+                    {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                   </Button>
                 </div>
-                <p className="text-[12px] text-slate-400">
-                  <Info className="w-3 h-3 inline mr-1" /> 
-                  Đây là endpoint mà SePay sẽ gọi đến khi có giao dịch thành công.
+                <p className="text-[10px] text-slate-400 leading-tight">
+                  <Info className="w-2.5 h-2.5 inline mr-1" /> 
+                  Endpoint nhận tín hiệu thanh toán từ SePay
                 </p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-sm font-semibold flex items-center gap-2">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-bold text-slate-600 flex items-center gap-2">
                   Webhook Secret (API Key)
-                  <Key className="w-3 h-3" />
+                  <Key className="w-2.5 h-2.5 text-slate-400" />
                 </label>
                 <div className="flex gap-2">
-                  <Input type="password" readOnly value={settings?.secret} className="bg-slate-50 font-mono text-sm" />
-                  <Button variant="outline" size="icon" onClick={() => copyToClipboard(settings?.secret, 'secret')}>
-                    {copiedSecret ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                  <Input type="password" readOnly value={settings?.secret} className="bg-slate-50 font-mono text-xs h-8" />
+                  <Button variant="outline" size="icon" className="h-8 w-8 shrink-0" onClick={() => copyToClipboard(settings?.secret, 'secret')}>
+                    {copiedSecret ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
                   </Button>
                 </div>
-                <p className="text-[12px] text-slate-400">
-                   Sử dụng Secret này trong mục <strong>Xác thực (Auth)</strong> trên SePay để đảm bảo an toàn.
-                </p>
               </div>
             </CardContent>
           </Card>
 
           {/* Webhook Logs History */}
           <Card className="border-none shadow-sm shadow-slate-200/50 overflow-hidden">
-            <CardHeader className="pb-3 border-b bg-slate-50/50">
-               <CardTitle className="text-lg flex items-center gap-2">
-                  <History className="w-5 h-5 text-blue-600" /> Lịch sử Webhook (Giao dịch nhận được)
+            <CardHeader className="p-3 px-4 border-b bg-slate-50/50">
+               <CardTitle className="text-xs font-bold uppercase tracking-tight flex items-center gap-2">
+                  <History className="w-4 h-4 text-blue-500" /> Logs Giao dịch thời gian thực
                </CardTitle>
             </CardHeader>
             <Table>
@@ -209,25 +209,25 @@ export default function WebhooksPage() {
                     const payload = log.payload || {};
                     return (
                       <TableRow key={log.id} className="group hover:bg-slate-50/50">
-                        <TableCell className="text-xs text-slate-500">
-                          {new Date(log.createdAt).toLocaleString('vi-VN')}
+                        <TableCell className="text-[10px] text-slate-400 py-1.5 font-medium">
+                          {new Date(log.createdAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit' })}
                         </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                            <span className="text-xs font-mono bg-slate-100 px-1 py-0.5 rounded w-fit border border-slate-200">
-                              {payload.content || 'N/A'}
-                            </span>
-                          </div>
+                        <TableCell className="py-1.5">
+                          <code className="text-[10px] bg-slate-100 px-1 py-0.5 rounded text-slate-600 border border-slate-200 max-w-[150px] truncate block">
+                            {payload.content || 'N/A'}
+                          </code>
                         </TableCell>
-                        <TableCell className="text-sm font-bold text-emerald-600">
+                        <TableCell className="text-xs font-bold text-emerald-600 py-1.5">
                           +{new Intl.NumberFormat('vi-VN').format(payload.transferAmount || 0)}đ
                         </TableCell>
-                        <TableCell>
-                          {getStatusBadge(log.status)}
+                        <TableCell className="py-1.5">
+                          <div className="scale-75 -ml-3 origin-left">
+                            {getStatusBadge(log.status)}
+                          </div>
                         </TableCell>
-                        <TableCell className="text-right">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-primary" onClick={() => showLogDetails(log)}>
-                            <Eye className="w-4 h-4" />
+                        <TableCell className="text-right py-1.5">
+                          <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-300 hover:text-primary" onClick={() => showLogDetails(log)}>
+                            <Eye className="w-3.5 h-3.5" />
                           </Button>
                         </TableCell>
                       </TableRow>

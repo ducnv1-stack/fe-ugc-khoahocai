@@ -143,18 +143,18 @@ export default function RolesPage() {
   };
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-4 pb-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-            <Shield className="w-7 h-7 text-primary" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-800 flex items-center gap-2">
+            <Shield className="w-5 h-5 text-primary" />
             Vai trò & Phân quyền
           </h1>
-          <p className="text-slate-500 mt-1 text-sm">Quản lý các chức danh và giới hạn quyền truy cập của hệ thống.</p>
+          <p className="text-slate-400 mt-0.5 text-[10px] uppercase font-medium tracking-wide">Quản lý cấp độ truy cập hệ thống</p>
         </div>
-        <Button className="shadow-sm" onClick={openCreate}>
-          <Plus className="w-4 h-4 mr-1.5" /> Tạo vai trò
+        <Button size="sm" className="shadow-sm h-8 text-xs" onClick={openCreate}>
+          <Plus className="w-3.5 h-3.5 mr-1" /> Tạo vai trò
         </Button>
       </div>
 
@@ -165,53 +165,53 @@ export default function RolesPage() {
             <Loader2 className="w-7 h-7 animate-spin text-primary" />
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-[11px]">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
-                <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Vai trò</th>
-                <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Mô tả</th>
-                <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Quyền</th>
-                <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Nhân sự</th>
-                <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Loại</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Thao tác</th>
+                <th className="text-left py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Vai trò</th>
+                <th className="text-left py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Mô tả</th>
+                <th className="text-left py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Quyền</th>
+                <th className="text-left py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Nhân sự</th>
+                <th className="text-left py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Loại</th>
+                <th className="text-right py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {roles.map(role => (
                 <tr key={role.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg">
-                        <Shield className="w-3.5 h-3.5" />
+                  <td className="py-1.5 px-4">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-blue-50 text-blue-500 rounded-lg">
+                        <Shield className="w-3 h-3" />
                       </div>
-                      <span className="font-bold text-slate-800">{role.name}</span>
+                      <span className="font-bold text-slate-700">{role.name}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-slate-500 text-xs">{role.description || '—'}</td>
-                  <td className="py-3 px-4">
-                    <span className="text-xs text-slate-600 font-medium">
+                  <td className="py-1.5 px-4 text-slate-400 text-[10px] italic">{role.description || '—'}</td>
+                  <td className="py-1.5 px-4">
+                    <span className="text-[10px] text-slate-500 font-bold uppercase">
                       {role.permissions?.length || 0} quyền
                     </span>
                   </td>
-                  <td className="py-3 px-4">
-                    <span className="inline-flex items-center gap-1 text-xs bg-slate-100 rounded-full px-2.5 py-0.5 text-slate-600 font-medium">
-                      <Users className="w-3 h-3" /> {role._count?.users || 0}
+                  <td className="py-1.5 px-4">
+                    <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 rounded-full px-2 py-0.5 text-slate-500 font-bold">
+                      <Users className="w-2.5 h-2.5" /> {role._count?.users || 0}
                     </span>
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-1.5 px-4">
                     {role.isSystem ? (
-                      <Badge className="text-[10px] bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-50">Hệ thống</Badge>
+                      <Badge className="text-[8px] h-4 bg-amber-50 text-amber-600 border-amber-100 hover:bg-amber-50 font-bold uppercase px-1">Hệ thống</Badge>
                     ) : (
-                      <Badge variant="outline" className="text-[10px] text-slate-600">Tùy chỉnh</Badge>
+                      <Badge variant="outline" className="text-[8px] h-4 text-slate-400 border-slate-100 font-bold uppercase px-1">Tùy chỉnh</Badge>
                     )}
                   </td>
-                  <td className="py-3 px-4 text-right">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-primary" onClick={() => openEdit(role)}>
-                      <Pencil className="w-3.5 h-3.5" />
+                  <td className="py-1.5 px-4 text-right">
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-primary" onClick={() => openEdit(role)}>
+                      <Pencil className="w-3 h-3" />
                     </Button>
                     {!role.isSystem && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" onClick={() => setDeleteTarget(role)}>
-                        <Trash2 className="w-3.5 h-3.5" />
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-rose-600" onClick={() => setDeleteTarget(role)}>
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     )}
                   </td>

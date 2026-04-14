@@ -107,29 +107,29 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-4 pb-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-2.5">
-            <Users className="w-7 h-7 text-primary" />
+          <h1 className="text-lg font-bold tracking-tight text-slate-800 flex items-center gap-2">
+            <Users className="w-5 h-5 text-primary" />
             Quản lý Nhân sự
           </h1>
-          <p className="text-slate-500 mt-1 text-sm">Thêm, chỉnh sửa và phân quyền cho tài khoản nhân viên.</p>
+          <p className="text-slate-400 mt-0.5 text-[10px] uppercase font-medium tracking-wide">Thành viên vận hành hệ thống</p>
         </div>
-        <Button className="shadow-sm" onClick={openCreate}>
-          <Plus className="w-4 h-4 mr-1.5" /> Thêm nhân sự
+        <Button size="sm" className="shadow-sm h-8 text-xs" onClick={openCreate}>
+          <Plus className="w-3.5 h-3.5 mr-1" /> Thêm nhân sự
         </Button>
       </div>
 
       {/* Search */}
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+      <div className="relative max-w-xs">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
         <Input
           placeholder="Tìm theo tên hoặc email..."
           value={search}
           onChange={e => setSearch(e.target.value)}
-          className="pl-9 h-9 text-sm"
+          className="pl-8 h-8 text-xs"
         />
       </div>
 
@@ -140,58 +140,58 @@ export default function UsersPage() {
             <Loader2 className="w-7 h-7 animate-spin text-primary" />
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-[11px]">
             <thead className="bg-slate-50 border-b border-slate-100">
               <tr>
-                <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Nhân sự</th>
-                <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Vai trò</th>
-                <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Trạng thái</th>
-                <th className="text-left py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Ngày tạo</th>
-                <th className="text-right py-3 px-4 font-semibold text-slate-500 text-xs uppercase tracking-wide">Thao tác</th>
+                <th className="text-left py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Nhân sự</th>
+                <th className="text-left py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Vai trò</th>
+                <th className="text-left py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Trạng thái</th>
+                <th className="text-left py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Ngày tạo</th>
+                <th className="text-right py-1.5 px-4 font-bold text-slate-400 text-[10px] uppercase tracking-tight">Thao tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
               {filtered.map(user => (
                 <tr key={user.id} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <span className="text-sm font-bold text-primary">
+                  <td className="py-1.5 px-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <span className="text-[10px] font-bold text-primary">
                           {user.name?.[0]?.toUpperCase() || '?'}
                         </span>
                       </div>
                       <div>
-                        <p className="font-semibold text-slate-800 text-sm">{user.name}</p>
-                        <p className="text-xs text-slate-500">{user.email}</p>
+                        <p className="font-semibold text-slate-700 leading-tight">{user.name}</p>
+                        <p className="text-[10px] text-slate-400">{user.email}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-4">
-                    <Badge variant="outline" className={`text-xs font-semibold ${ROLE_COLORS[user.role?.name] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>
-                      <ShieldCheck className="w-3 h-3 mr-1" />
+                  <td className="py-1.5 px-4">
+                    <Badge variant="outline" className={`text-[9px] font-bold px-1.5 py-0 ${ROLE_COLORS[user.role?.name] || 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                      <ShieldCheck className="w-2.5 h-2.5 mr-1" />
                       {user.role?.name || 'Không có'}
                     </Badge>
                   </td>
-                  <td className="py-3 px-4">
+                  <td className="py-1.5 px-4">
                     {user.isOnline ? (
-                      <span className="flex items-center gap-1.5 text-xs text-emerald-600 font-medium">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Online
+                      <span className="flex items-center gap-1.5 text-[10px] text-emerald-600 font-bold uppercase tracking-tight">
+                        <CheckCircle2 className="w-3 h-3" /> Online
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                        <Circle className="w-3.5 h-3.5" /> Offline
+                      <span className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium uppercase tracking-tight">
+                        <Circle className="w-3 h-3" /> Offline
                       </span>
                     )}
                   </td>
-                  <td className="py-3 px-4 text-xs text-slate-500">
+                  <td className="py-1.5 px-4 text-[10px] text-slate-400">
                     {new Date(user.createdAt).toLocaleDateString('vi-VN')}
                   </td>
-                  <td className="py-3 px-4 text-right">
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-primary" onClick={() => openEdit(user)}>
-                      <Pencil className="w-3.5 h-3.5" />
+                  <td className="py-1.5 px-4 text-right">
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-primary" onClick={() => openEdit(user)}>
+                      <Pencil className="w-3 h-3" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-rose-600" onClick={() => setDeleteTarget(user)}>
-                      <Trash2 className="w-3.5 h-3.5" />
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400 hover:text-rose-600" onClick={() => setDeleteTarget(user)}>
+                      <Trash2 className="w-3 h-3" />
                     </Button>
                   </td>
                 </tr>

@@ -1,27 +1,31 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  Plus, 
-  Search, 
-  UserPlus, 
-  ChevronDown, 
-  ChevronRight, 
-  Phone, 
-  FileText, 
-  Loader2, 
-  UserCircle, 
-  QrCode, 
-  CheckCircle2, 
-  AlertCircle, 
-  Edit2, 
-  Check, 
-  X, 
-  Banknote, 
+import {
+  Plus,
+  Search,
+  UserPlus,
+  ChevronDown,
+  ChevronRight,
+  Phone,
+  FileText,
+  Loader2,
+  UserCircle,
+  QrCode,
+  CheckCircle2,
+  AlertCircle,
+  Edit2,
+  Check,
+  X,
+  Banknote,
   Percent,
   Trash2,
   FileCheck,
-  FileX
+  FileX,
+  UserX,
+  Clock,
+  Copy,
+  Calendar
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -36,6 +40,7 @@ import api from '@/lib/api';
 import { toast } from 'sonner';
 import { Customer, CustomerFormDialog } from './customer-form-dialog';
 import { OrderCreateDialog } from './order-create-dialog';
+import { ScheduleAssignDialog } from './schedule-assign-dialog';
 import { useSocket } from '@/hooks/use-socket';
 import { useConfirm } from '@/provider/confirm-provider';
 import { cn } from '@/lib/utils';
@@ -45,12 +50,15 @@ export default function CustomersPage() {
   const confirm = useConfirm();
   const [customers, setCustomers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bankSettings, setBankSettings] = useState<{ id: string; accountNo: string; accountName: string } | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   const [formOpen, setFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
-  
+  const [activeTab, setActiveTab] = useState<'customers' | 'leads'>('customers');
+
   const [orderOpen, setOrderOpen] = useState(false);
+  const [scheduleAssignOpen, setScheduleAssignOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -102,13 +110,28 @@ export default function CustomersPage() {
     return () => clearTimeout(delayDebounceFn);
   }, [searchTerm]);
 
-  // Listen for realtime payments
+  // Load bank settings once
+  useEffect(() => {
+    api.get('/payments/settings').then(res => {
+      if (res.data?.bankInfo) setBankSettings(res.data.bankInfo);
+    }).catch(() => { });
+  }, []);
+
+  // Listen for realtime events
   useSocket((event, data) => {
     if (event === 'payment.received') {
       fetchCustomers(searchTerm);
       toast.success(`Đã nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(data.amount)}đ từ ${data.customerName}`, {
         description: 'Dữ liệu đã được cập nhật tự động.',
         duration: 5000,
+      });
+    }
+
+    if (event === 'customer.created') {
+      fetchCustomers(searchTerm);
+      toast.info(`Có khách hàng mới: ${data.name}`, {
+        description: 'Danh sách đã được làm mới.',
+        icon: <UserPlus className="w-4 h-4 text-blue-500" />
       });
     }
   });
@@ -159,7 +182,7 @@ export default function CustomersPage() {
       toast.error('Số tiền không hợp lệ');
       return;
     }
-    
+
     setPaidAmountLoading(true);
     try {
       await api.patch(`/orders/${orderId}/paid-amount`, { paidAmount: amount });
@@ -178,7 +201,7 @@ export default function CustomersPage() {
     const totalPrice = order.totalPrice || 0;
     const discountType = order.discountType || 'FIXED';
     const discountValue = order.discountValue || 0;
-    
+
     let localAmount: number | '' = '';
     let localPercent: number | '' = '';
 
@@ -205,7 +228,7 @@ export default function CustomersPage() {
     if (!priceEditData) return;
     const amount = val === '' ? 0 : Number(val);
     const percent = priceEditData.totalPrice > 0 ? Number(((amount / priceEditData.totalPrice) * 100).toFixed(2)) : 0;
-    
+
     setPriceEditData({
       ...priceEditData,
       discountType: 'FIXED',
@@ -220,7 +243,7 @@ export default function CustomersPage() {
     if (!priceEditData) return;
     const percent = val === '' ? 0 : Number(val);
     const amount = Math.round(priceEditData.totalPrice * (percent / 100));
-    
+
     setPriceEditData({
       ...priceEditData,
       discountType: 'PERCENT',
@@ -279,7 +302,24 @@ export default function CustomersPage() {
     }
   };
 
-  const formatCurrency = (val: number) => 
+  const handleDeleteLeadCustomer = async (customerId: string, customerName: string) => {
+    const isConfirmed = await confirm({
+      title: `Xóa khách tạm: ${customerName}`,
+      description: 'Khách này chưa thanh toán. Hành động này sẽ xóa hoàn toàn khách hàng và đơn hàng liên quan.',
+      confirmText: 'Xóa khách tạm',
+      variant: 'destructive'
+    });
+    if (!isConfirmed) return;
+    try {
+      await api.delete(`/customers/${customerId}/lead`);
+      toast.success('Dã xóa khách hàng tạm thành công');
+      fetchCustomers(searchTerm);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi khi xóa khách hàng');
+    }
+  };
+
+  const formatCurrency = (val: number) =>
     new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
 
   const getCustomerInsights = (customer: any) => {
@@ -288,7 +328,7 @@ export default function CustomersPage() {
     const totalDue = orders.reduce((sum: number, o: any) => sum + o.finalPrice, 0);
     const hasUnpaid = orders.some((o: any) => o.status !== 'PAID');
     const courseCount = orders.reduce((sum: number, o: any) => sum + (o.items?.length || 0), 0);
-    
+
     const paidOrdersCount = orders.filter((o: any) => o.status === 'PAID').length;
     const pendingOrdersCount = orders.filter((o: any) => o.status !== 'PAID').length;
 
@@ -300,60 +340,92 @@ export default function CustomersPage() {
     return { totalSpent, totalDue, hasUnpaid, courseCount, paidOrdersCount, pendingOrdersCount, tags };
   };
 
+  const leadCustomers = customers.filter((c: any) => c.isLead);
+  const regularCustomers = customers.filter((c: any) => !c.isLead);
+  const displayedCustomers = activeTab === 'leads' ? leadCustomers : regularCustomers;
+
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-4 pb-10">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Hệ thống CRM Khách hàng</h2>
-          <p className="text-muted-foreground mt-1">Quản lý sâu sát hành trình học tập và thanh toán.</p>
+          <h2 className="text-xl font-bold tracking-tight">Hệ thống CRM Khách hàng</h2>
+          <p className="text-xs text-muted-foreground mt-1">Quản lý sâu sát hành trình học tập và thanh toán.</p>
         </div>
         <div className="flex gap-2">
-            {canManage && (
-                <Button onClick={() => { setEditingCustomer(null); setFormOpen(true); }}>
-                    <UserPlus className="w-4 h-4 mr-2" />
-                    Thêm Khách hàng
-                </Button>
-            )}
+          {canManage && (
+            <Button size="sm" className="h-8 text-xs" onClick={() => { setEditingCustomer(null); setFormOpen(true); }}>
+              <UserPlus className="w-3.5 h-3.5 mr-1.5" />
+              Thêm Khách hàng
+            </Button>
+          )}
         </div>
       </div>
 
-      <Card className="border-none shadow-sm bg-white/50 backdrop-blur-sm">
-        <CardContent className="p-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <Input 
-              placeholder="Tìm theo Tên, SĐT, Mã KH... (VD: Nguyễn Văn A, 09x, KH1001)" 
-              className="pl-10 h-11 bg-white border-slate-200"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Tabs */}
+      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+        <button
+          onClick={() => setActiveTab('customers')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${activeTab === 'customers'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+            }`}
+        >
+          <UserCircle className="w-3.5 h-3.5" />
+          Học viên
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'customers' ? 'bg-slate-100 text-slate-600' : 'bg-slate-200 text-slate-500'
+            }`}>{regularCustomers.length}</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('leads')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${activeTab === 'leads'
+              ? 'bg-white text-slate-900 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
+            }`}
+        >
+          <Clock className="w-3.5 h-3.5" />
+          Khách tạm (Chờ thanh toán)
+          {leadCustomers.length > 0 && (
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'leads' ? 'bg-orange-100 text-orange-600' : 'bg-orange-200 text-orange-600'
+              }`}>{leadCustomers.length}</span>
+          )}
+        </button>
+      </div>
+
+      <div className="relative w-full">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+        <Input
+          placeholder="Tìm Tên, SĐT, Mã KH..."
+          className="pl-8 h-8 text-[11px] bg-white shadow-sm border-slate-200 w-full md:max-w-md rounded-lg"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+      </div>
 
       <div className="rounded-xl border bg-white shadow-sm overflow-hidden">
         <Table>
           <TableHeader className="bg-slate-50/80">
-            <TableRow className="hover:bg-transparent">
+            <TableRow className="hover:bg-transparent h-8">
               <TableHead className="w-10"></TableHead>
-              <TableHead className="min-w-[200px]">Thông tin khách</TableHead>
-              <TableHead>Khóa học</TableHead>
-              <TableHead>Trạng thái đơn</TableHead>
-              <TableHead>Trình trạng học phí</TableHead>
-              <TableHead>Nhân viên</TableHead>
-              <TableHead className="text-right">Hành động</TableHead>
+              <TableHead className="min-w-[200px] text-[11px] font-bold">Thông tin khách</TableHead>
+              <TableHead className="text-[11px] font-bold">Khóa học</TableHead>
+              <TableHead className="text-[11px] font-bold">Trạng thái đơn</TableHead>
+              <TableHead className="text-[11px] font-bold">Trình trạng học phí</TableHead>
+              <TableHead className="text-[11px] font-bold">Nhân viên</TableHead>
+              <TableHead className="text-right text-[11px] font-bold">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow><TableCell colSpan={7} className="h-32 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2" /> Đang tải...</TableCell></TableRow>
-            ) : customers.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="h-32 text-center text-slate-400 italic">Không có dữ liệu.</TableCell></TableRow>
+            ) : displayedCustomers.length === 0 ? (
+              <TableRow><TableCell colSpan={7} className="h-32 text-center text-slate-400 italic">
+                {activeTab === 'leads' ? '✅ Không có khách tạm nào — tất cả đã thanh toán!' : 'Không có dữ liệu khách hàng.'}
+              </TableCell></TableRow>
             ) : (
-              customers.map((customer) => {
+              displayedCustomers.map((customer) => {
                 const isExpanded = expandedRows.has(customer.id);
                 const { totalSpent, totalDue, hasUnpaid, courseCount, paidOrdersCount, pendingOrdersCount, tags } = getCustomerInsights(customer);
-                
+
                 return (
                   <React.Fragment key={customer.id}>
                     <TableRow className={`cursor-pointer hover:bg-slate-50/50 transition-colors ${isExpanded ? 'bg-slate-50 border-b-0' : ''}`} onClick={() => toggleRow(customer.id)}>
@@ -361,21 +433,26 @@ export default function CustomersPage() {
                         {isExpanded ? <ChevronDown className="w-4 h-4 text-primary" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
                       </TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-full flex items-center justify-center ${tags.includes('VIP') ? 'bg-amber-100 text-amber-600' : 'bg-slate-100 text-slate-400'}`}>
-                            <UserCircle className="w-5 h-5" />
+                        <div className="flex items-center gap-2">
+                          <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 ${tags.includes('VIP') ? 'bg-amber-100 text-amber-600' : customer.isLead ? 'bg-orange-100 text-orange-500' : 'bg-slate-100 text-slate-400'}`}>
+                            {customer.isLead ? <Clock className="w-3 h-3" /> : <UserCircle className="w-3 h-3" />}
                           </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-bold text-slate-900 leading-none">{customer.name}</p>
-                              <Badge variant="outline" className="text-[10px] font-mono py-0 h-4 bg-slate-50 border-slate-200 text-slate-500">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-bold text-[11px] text-slate-900 leading-none">{customer.name}</p>
+                              <p className="text-[9px] text-slate-500 flex items-center gap-0.5 ml-1"><Phone className="w-2.5 h-2.5" /> {customer.phone}</p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1">
+                              <Badge variant="outline" className="text-[8px] font-mono py-0 h-3 bg-slate-50 border-slate-200 text-slate-500 leading-none px-1">
                                 {customer.code || 'KH---'}
                               </Badge>
-                            </div>
-                            <p className="text-[11px] text-slate-500 mt-1 flex items-center gap-2"><Phone className="w-3 h-3" /> {customer.phone}</p>
-                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {customer.isLead && (
+                                <Badge className="text-[7px] px-1 py-0 h-3 bg-orange-100 text-orange-600 border border-orange-200 font-bold uppercase hover:bg-orange-100 leading-none">
+                                  Khách tạm
+                                </Badge>
+                              )}
                               {tags.map(tag => (
-                                <Badge key={tag} className={`text-[9px] px-1 py-0 font-normal uppercase ${tag === 'VIP' ? 'bg-amber-500 hover:bg-amber-600' : tag === 'Mới' ? 'bg-emerald-500' : 'bg-slate-200 text-slate-700 hover:bg-slate-300 border-none'}`}>
+                                <Badge key={tag} className={`text-[7px] px-1 py-0 h-3 font-normal uppercase leading-none ${tag === 'VIP' ? 'bg-amber-500 hover:bg-amber-600' : tag === 'Mới' ? 'bg-emerald-500' : 'bg-slate-200 text-slate-700 border-none'}`}>
                                   {tag}
                                 </Badge>
                               ))}
@@ -385,71 +462,86 @@ export default function CustomersPage() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
-                          <Badge variant="outline" className="font-bold bg-blue-50 text-blue-700 border-blue-100">{courseCount} Khóa</Badge>
+                          <Badge variant="outline" className="font-bold bg-blue-50 text-blue-700 border-blue-100 text-[9px] px-1 h-4 py-0">{courseCount} Khóa</Badge>
                           <div className="flex -space-x-1 overflow-hidden">
                             {customer.orders?.flatMap((o: any) => o.items).slice(0, 3).map((item: any, idx: number) => (
-                                <div key={idx} title={item.course.name} className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600">
-                                    {item.course.code.substring(0, 2)}
-                                </div>
+                              <div key={idx} title={item.course.name} className="w-4 h-4 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[7px] font-bold text-slate-600">
+                                {item.course.code.substring(0, 2)}
+                              </div>
                             ))}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1">
-                            {paidOrdersCount > 0 && <span className="text-[11px] text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> {paidOrdersCount} Đã xong</span>}
-                            {pendingOrdersCount > 0 && <span className="text-[11px] text-rose-500 font-medium flex items-center gap-1"><AlertCircle className="w-3 h-3" /> {pendingOrdersCount} Chờ xử lý</span>}
+                        <div className="flex flex-col gap-0.5">
+                          {paidOrdersCount > 0 && <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5" /> {paidOrdersCount} Đã xong</span>}
+                          {pendingOrdersCount > 0 && <span className="text-[10px] text-rose-500 font-medium flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> {pendingOrdersCount} Chờ xử lý</span>}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-1 w-full max-w-[140px]">
-                          <div className="flex items-baseline justify-between">
-                            <span className="text-[10px] text-slate-400">Tổng:</span>
-                            <span className="text-[11px] font-medium">{formatCurrency(totalDue)}</span>
+                        <div className="flex flex-col gap-0 w-full max-w-[120px] leading-none">
+                          <div className="flex items-center justify-between py-0.5">
+                            <span className="text-[9px] text-slate-400">Tổng</span>
+                            <span className="text-[10px] font-medium">{formatCurrency(totalDue)}</span>
                           </div>
-                          <div className="flex items-baseline justify-between border-b border-dashed border-slate-200 pb-1">
-                            <span className="text-[10px] text-slate-400">Đã đóng:</span>
-                            <span className="text-[11px] font-bold text-emerald-600">{formatCurrency(totalSpent)}</span>
+                          <div className="flex items-center justify-between py-0.5 border-b border-slate-100 mb-0.5">
+                            <span className="text-[9px] text-slate-400">Đã đóng</span>
+                            <span className="text-[10px] font-bold text-emerald-600">{formatCurrency(totalSpent)}</span>
                           </div>
                           {totalDue - totalSpent > 0 && (
-                            <div className="flex items-baseline justify-between pt-0.5">
-                              <span className="text-[10px] font-medium text-rose-500">Còn nợ:</span>
-                              <span className="text-[11px] font-bold text-rose-600">{formatCurrency(totalDue - totalSpent)}</span>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-medium text-rose-500">Còn nợ</span>
+                              <span className="text-[10px] font-bold text-rose-600">{formatCurrency(totalDue - totalSpent)}</span>
                             </div>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="text-xs text-slate-500">{customer.assignedSale?.name || '---'}</span>
+                        <span className="text-[10px] text-slate-500 truncate block max-w-[80px]">{customer.assignedSale?.name || '---'}</span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button variant="outline" size="sm" className="h-8 border-primary/20 hover:bg-primary/5 text-primary text-xs" onClick={(e) => { e.stopPropagation(); setSelectedCustomer(customer); setOrderOpen(true); }}>
-                          <Plus className="w-3 h-3 mr-1" /> Gán khóa học
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          {customer.isLead && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-[10px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-rose-100"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteLeadCustomer(customer.id, customer.name); }}
+                            >
+                              <UserX className="w-3 h-3 mr-1" /> Xóa khách tạm
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" className="h-7 px-2 border-primary/20 hover:bg-primary/5 text-primary text-[10px]" onClick={(e) => { e.stopPropagation(); setSelectedCustomer(customer); setOrderOpen(true); }}>
+                            <Plus className="w-3 h-3 mr-1" /> Gán khóa học
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 px-2 border-indigo-200 hover:bg-indigo-50 text-indigo-600 text-[10px]" onClick={(e) => { e.stopPropagation(); setSelectedCustomer(customer); setScheduleAssignOpen(true); }}>
+                            <Calendar className="w-3 h-3 mr-1" /> Gán lịch học
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
-                    
+
                     {isExpanded && (
                       <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                        <TableCell colSpan={7} className="py-4 pl-14 pr-8">
-                          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="p-3 bg-slate-50/50 border-b flex justify-between items-center mt-0">
-                                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Lịch sử đơn hàng & Thanh toán</h4>
-                                <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setEditingCustomer(customer); setFormOpen(true); }}>
-                                    <FileText className="w-3 h-3 mr-1" /> Chỉnh sửa hồ sơ
-                                </Button>
+                        <TableCell colSpan={7} className="py-2 pl-9 pr-4">
+                          <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="p-2 px-3 bg-slate-50/50 border-b flex justify-between items-center mt-0">
+                              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Lịch sử đơn hàng & Thanh toán</h4>
+                              <Button variant="ghost" size="sm" className="h-6 text-[10px] px-2" onClick={() => { setEditingCustomer(customer); setFormOpen(true); }}>
+                                <FileText className="w-3 h-3 mr-1" /> Chỉnh sửa hồ sơ
+                              </Button>
                             </div>
                             <Table>
                               <TableHeader>
                                 <TableRow className="bg-transparent hover:bg-transparent border-none">
-                                  <TableHead className="h-10 text-[11px]">Ngày tạo</TableHead>
-                                  <TableHead className="h-10 text-[11px]">Khóa học</TableHead>
-                                  <TableHead className="h-10 text-[11px]">Giá trị đơn</TableHead>
-                                  <TableHead className="h-10 text-[11px]">Nội dung CK</TableHead>
-                                  <TableHead className="h-10 text-[11px]">Đã thanh toán</TableHead>
-                                  <TableHead className="h-10 text-[11px]">Trạng thái</TableHead>
-                                  <TableHead className="h-10 text-[11px]">Hóa đơn</TableHead>
-                                  <TableHead className="h-10 text-[11px] text-right">QR / Thu tiền</TableHead>
+                                  <TableHead className="py-1 text-[10px]">Ngày tạo</TableHead>
+                                  <TableHead className="py-1 text-[10px]">Khóa học</TableHead>
+                                  <TableHead className="py-1 text-[10px]">Giá trị đơn</TableHead>
+                                  <TableHead className="py-1 text-[10px]">Nội dung CK</TableHead>
+                                  <TableHead className="py-1 text-[10px]">Đã thanh toán</TableHead>
+                                  <TableHead className="py-1 text-[10px]">Trạng thái</TableHead>
+                                  <TableHead className="py-1 text-[10px]">Hóa đơn</TableHead>
+                                  <TableHead className="py-1 text-[10px] text-right">QR / Thu tiền</TableHead>
                                 </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -457,132 +549,132 @@ export default function CustomersPage() {
                                   customer.orders.map((order: any) => {
                                     const defaultMemo = `${order.items[0]?.course?.code || 'UGC'} ${customer.phone}`.trim();
                                     const displayMemo = order.memo || defaultMemo;
-                                    
+
                                     return (
-                                      <TableRow key={order.id} className="hover:bg-slate-50 group border-slate-100 last:border-0 h-10">
+                                      <TableRow key={order.id} className="hover:bg-slate-50 group border-slate-100 last:border-0 h-8">
                                         <TableCell className="text-[11px] py-1">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</TableCell>
                                         <TableCell className="text-[11px] py-1 font-medium">
                                           {order.items.map((i: any) => i.course.code).join(', ')}
                                         </TableCell>
-                                        
+
                                         {/* Cột Giá trị đơn - Có tính năng chỉnh sửa nhanh */}
                                         <TableCell className="py-1">
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-[11px] font-bold">{formatCurrency(order.finalPrice)}</span>
-                                                {editingPriceId === order.id && priceEditData ? (
-                                                    <Popover open={true} onOpenChange={(open) => !open && setEditingPriceId(null)}>
-                                                        <PopoverTrigger asChild>
-                                                            <Button variant="ghost" size="icon" className="h-6 w-6 text-primary">
-                                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                                            </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-80 p-4 shadow-xl border-slate-200" align="start">
-                                                            <div className="space-y-4">
-                                                                <div className="flex justify-between items-center">
-                                                                    <h5 className="font-bold text-xs uppercase text-slate-500">Cấu hình giảm giá</h5>
-                                                                    <Badge variant="outline" className="text-[9px]">Gốc: {formatCurrency(priceEditData.totalPrice)}</Badge>
-                                                                </div>
-                                                                <div className="grid grid-cols-2 gap-3">
-                                                                    <div className="space-y-1">
-                                                                        <Label className="text-[10px] flex items-center gap-1"><Banknote className="w-3 h-3" /> Tiền mặt (VNĐ)</Label>
-                                                                        <Input 
-                                                                            type="number" 
-                                                                            className="h-8 text-xs font-bold" 
-                                                                            value={priceEditData.localAmount} 
-                                                                            onChange={e => handlePriceAmountChange(e.target.value)}
-                                                                        />
-                                                                    </div>
-                                                                    <div className="space-y-1">
-                                                                        <Label className="text-[10px] flex items-center gap-1"><Percent className="w-3 h-3" /> Phần trăm (%)</Label>
-                                                                        <Input 
-                                                                            type="number" 
-                                                                            className="h-8 text-xs font-bold" 
-                                                                            value={priceEditData.localPercent} 
-                                                                            onChange={e => handlePricePercentChange(e.target.value)}
-                                                                        />
-                                                                    </div>
-                                                                </div>
-                                                                <div className="pt-2 border-t flex justify-between items-center">
-                                                                    <div>
-                                                                        <p className="text-[10px] text-slate-400">Giá mới:</p>
-                                                                        <p className="text-sm font-bold text-emerald-600">{formatCurrency(priceEditData.finalPrice)}</p>
-                                                                    </div>
-                                                                    <div className="flex gap-1">
-                                                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingPriceId(null)}>
-                                                                            <X className="w-4 h-4" />
-                                                                        </Button>
-                                                                        <Button size="icon" className="h-7 w-7 bg-emerald-600" onClick={() => saveOrderPrice(order.id)} disabled={priceLoading}>
-                                                                            {priceLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-4 h-4" />}
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                ) : (
-                                                    <Button 
-                                                        variant="ghost" 
-                                                        size="sm" 
-                                                        className="h-6 px-1.5 text-[9px] text-slate-400 hover:text-primary hover:bg-primary/10 flex items-center gap-1"
-                                                        onClick={() => startEditingPrice(order)}
-                                                    >
-                                                        <Edit2 className="w-2.5 h-2.5" /> Giảm giá
-                                                    </Button>
-                                                )}
-                                            </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-bold">{formatCurrency(order.finalPrice)}</span>
+                                            {editingPriceId === order.id && priceEditData ? (
+                                              <Popover open={true} onOpenChange={(open) => !open && setEditingPriceId(null)}>
+                                                <PopoverTrigger asChild>
+                                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-primary">
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                  </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-80 p-4 shadow-xl border-slate-200" align="start">
+                                                  <div className="space-y-4">
+                                                    <div className="flex justify-between items-center">
+                                                      <h5 className="font-bold text-xs uppercase text-slate-500">Cấu hình giảm giá</h5>
+                                                      <Badge variant="outline" className="text-[9px]">Gốc: {formatCurrency(priceEditData.totalPrice)}</Badge>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                      <div className="space-y-1">
+                                                        <Label className="text-[10px] flex items-center gap-1"><Banknote className="w-3 h-3" /> Tiền mặt (VNĐ)</Label>
+                                                        <Input
+                                                          type="number"
+                                                          className="h-8 text-xs font-bold"
+                                                          value={priceEditData.localAmount}
+                                                          onChange={e => handlePriceAmountChange(e.target.value)}
+                                                        />
+                                                      </div>
+                                                      <div className="space-y-1">
+                                                        <Label className="text-[10px] flex items-center gap-1"><Percent className="w-3 h-3" /> Phần trăm (%)</Label>
+                                                        <Input
+                                                          type="number"
+                                                          className="h-8 text-xs font-bold"
+                                                          value={priceEditData.localPercent}
+                                                          onChange={e => handlePricePercentChange(e.target.value)}
+                                                        />
+                                                      </div>
+                                                    </div>
+                                                    <div className="pt-2 border-t flex justify-between items-center">
+                                                      <div>
+                                                        <p className="text-[10px] text-slate-400">Giá mới:</p>
+                                                        <p className="text-sm font-bold text-emerald-600">{formatCurrency(priceEditData.finalPrice)}</p>
+                                                      </div>
+                                                      <div className="flex gap-1">
+                                                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingPriceId(null)}>
+                                                          <X className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button size="icon" className="h-7 w-7 bg-emerald-600" onClick={() => saveOrderPrice(order.id)} disabled={priceLoading}>
+                                                          {priceLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-4 h-4" />}
+                                                        </Button>
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                </PopoverContent>
+                                              </Popover>
+                                            ) : (
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-6 px-1.5 text-[9px] text-slate-400 hover:text-primary hover:bg-primary/10 flex items-center gap-1"
+                                                onClick={() => startEditingPrice(order)}
+                                              >
+                                                <Edit2 className="w-2.5 h-2.5" /> Giảm giá
+                                              </Button>
+                                            )}
+                                          </div>
                                         </TableCell>
 
                                         {/* Cột Nội dung CK */}
                                         <TableCell className="py-1">
                                           {editingMemoId === order.id ? (
-                                              <div className="flex items-center gap-1">
-                                                  <Input 
-                                                      className="h-7 text-[10px] w-32" 
-                                                      value={memoValue} 
-                                                      onChange={e => setMemoValue(e.target.value)} 
-                                                      autoFocus
-                                                  />
-                                                  <Button size="icon" className="h-6 w-6 bg-emerald-500" onClick={() => handleUpdateMemo(order.id)} disabled={memoLoading}>
-                                                      {memoLoading ? <Loader2 className="w-3 h-3 animate-spin text-white" /> : <Check className="w-3 h-3 text-white" />}
-                                                  </Button>
-                                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingMemoId(null)}>
-                                                      <X className="w-3 h-3" />
-                                                  </Button>
-                                              </div>
+                                            <div className="flex items-center gap-1">
+                                              <Input
+                                                className="h-7 text-[10px] w-32"
+                                                value={memoValue}
+                                                onChange={e => setMemoValue(e.target.value)}
+                                                autoFocus
+                                              />
+                                              <Button size="icon" className="h-6 w-6 bg-emerald-500" onClick={() => handleUpdateMemo(order.id)} disabled={memoLoading}>
+                                                {memoLoading ? <Loader2 className="w-3 h-3 animate-spin text-white" /> : <Check className="w-3 h-3 text-white" />}
+                                              </Button>
+                                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingMemoId(null)}>
+                                                <X className="w-3 h-3" />
+                                              </Button>
+                                            </div>
                                           ) : (
-                                              <div className="flex items-center gap-2 group/memo cursor-pointer" onClick={() => { setEditingMemoId(order.id); setMemoValue(displayMemo); }}>
-                                                  <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
-                                                      {displayMemo}
-                                                  </span>
-                                                  <Edit2 className="w-2.5 h-2.5 text-slate-400 opacity-0 group-hover/memo:opacity-100 transition-opacity" />
-                                              </div>
+                                            <div className="flex items-center gap-2 group/memo cursor-pointer" onClick={() => { setEditingMemoId(order.id); setMemoValue(displayMemo); }}>
+                                              <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+                                                {displayMemo}
+                                              </span>
+                                              <Edit2 className="w-2.5 h-2.5 text-slate-400 opacity-0 group-hover/memo:opacity-100 transition-opacity" />
+                                            </div>
                                           )}
                                         </TableCell>
 
                                         <TableCell className="text-[11px] py-1">
                                           {editingPaidAmountId === order.id ? (
-                                              <div className="flex items-center gap-1">
-                                                  <Input 
-                                                      type="number"
-                                                      className="h-7 text-[10px] w-24 font-bold text-emerald-600" 
-                                                      value={paidAmountValue} 
-                                                      onChange={e => setPaidAmountValue(e.target.value === '' ? '' : Number(e.target.value))} 
-                                                      autoFocus
-                                                  />
-                                                  <Button size="icon" className="h-6 w-6 bg-emerald-500" onClick={() => handleUpdatePaidAmount(order.id)} disabled={paidAmountLoading}>
-                                                      {paidAmountLoading ? <Loader2 className="w-3 h-3 animate-spin text-white" /> : <Check className="w-3 h-3 text-white" />}
-                                                  </Button>
-                                                  <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingPaidAmountId(null)}>
-                                                      <X className="w-3 h-3" />
-                                                  </Button>
-                                              </div>
+                                            <div className="flex items-center gap-1">
+                                              <Input
+                                                type="number"
+                                                className="h-7 text-[10px] w-24 font-bold text-emerald-600"
+                                                value={paidAmountValue}
+                                                onChange={e => setPaidAmountValue(e.target.value === '' ? '' : Number(e.target.value))}
+                                                autoFocus
+                                              />
+                                              <Button size="icon" className="h-6 w-6 bg-emerald-500" onClick={() => handleUpdatePaidAmount(order.id)} disabled={paidAmountLoading}>
+                                                {paidAmountLoading ? <Loader2 className="w-3 h-3 animate-spin text-white" /> : <Check className="w-3 h-3 text-white" />}
+                                              </Button>
+                                              <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => setEditingPaidAmountId(null)}>
+                                                <X className="w-3 h-3" />
+                                              </Button>
+                                            </div>
                                           ) : (
-                                              <div className="flex items-center gap-2 group/paid cursor-pointer" onClick={() => { setEditingPaidAmountId(order.id); setPaidAmountValue(order.paidAmount); }}>
-                                                  <span className="text-[11px] text-emerald-600 font-bold border-b border-dashed border-transparent group-hover/paid:border-emerald-300">
-                                                      {formatCurrency(order.paidAmount)}
-                                                  </span>
-                                                  <Edit2 className="w-2.5 h-2.5 text-slate-400 opacity-0 group-hover/paid:opacity-100 transition-opacity" />
-                                              </div>
+                                            <div className="flex items-center gap-2 group/paid cursor-pointer" onClick={() => { setEditingPaidAmountId(order.id); setPaidAmountValue(order.paidAmount); }}>
+                                              <span className="text-[11px] text-emerald-600 font-bold border-b border-dashed border-transparent group-hover/paid:border-emerald-300">
+                                                {formatCurrency(order.paidAmount)}
+                                              </span>
+                                              <Edit2 className="w-2.5 h-2.5 text-slate-400 opacity-0 group-hover/paid:opacity-100 transition-opacity" />
+                                            </div>
                                           )}
                                         </TableCell>
                                         <TableCell className="py-1">
@@ -594,9 +686,9 @@ export default function CustomersPage() {
                                             <Badge className="bg-rose-100 text-rose-700 hover:bg-rose-100 text-[9px] h-4">Chờ</Badge>
                                           )}
                                         </TableCell>
-                                        
+
                                         <TableCell className="py-1">
-                                          <div 
+                                          <div
                                             className="flex items-center justify-start"
                                           >
                                             <Button
@@ -604,8 +696,8 @@ export default function CustomersPage() {
                                               size="sm"
                                               className={cn(
                                                 "h-7 px-2 text-[10px] font-bold rounded-lg transition-all flex items-center gap-1.5 cursor-pointer",
-                                                order.invoiceIssued 
-                                                  ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700" 
+                                                order.invoiceIssued
+                                                  ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100 hover:text-emerald-700"
                                                   : "bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-600"
                                               )}
                                               onClick={() => handleToggleInvoice(order.id, order.invoiceIssued)}
@@ -624,18 +716,18 @@ export default function CustomersPage() {
                                             </Button>
                                           </div>
                                         </TableCell>
-                                        
+
                                         <TableCell className="text-right py-1 flex justify-end gap-1">
                                           {order.status !== 'PAID' && order.paidAmount === 0 && (
-                                              <Button 
-                                                  size="sm" 
-                                                  variant="ghost" 
-                                                  className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
-                                                  onClick={() => handleDeleteOrder(order.id)}
-                                                  title="Gỡ khóa học"
-                                              >
-                                                  <Trash2 className="w-3 h-3" />
-                                              </Button>
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              className="h-7 w-7 p-0 text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                                              onClick={() => handleDeleteOrder(order.id)}
+                                              title="Gỡ khóa học"
+                                            >
+                                              <Trash2 className="w-3 h-3" />
+                                            </Button>
                                           )}
                                           {order.status !== 'PAID' ? (
                                             <Button size="sm" variant="outline" className="h-7 text-[10px] bg-primary/5 border-primary/20 text-primary hover:bg-primary" onClick={() => { setActiveQr({ ...order, memo: displayMemo }); setQrModalOpen(true); }}>
@@ -665,82 +757,121 @@ export default function CustomersPage() {
         </Table>
       </div>
 
-      <CustomerFormDialog 
-        open={formOpen} 
-        onOpenChange={setFormOpen} 
+      <CustomerFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
         customer={editingCustomer}
         onSave={handleSaveCustomer}
       />
 
-      <OrderCreateDialog 
+      <OrderCreateDialog
         open={orderOpen}
-        onOpenChange={(open) => { setOrderOpen(open); if(!open) fetchCustomers(searchTerm); }}
+        onOpenChange={(open) => { setOrderOpen(open); if (!open) fetchCustomers(searchTerm); }}
         customer={selectedCustomer}
       />
 
-      {/* Modal nhanh hiển thị QR */}
+      <ScheduleAssignDialog
+        customer={selectedCustomer}
+        open={scheduleAssignOpen}
+        onOpenChange={setScheduleAssignOpen}
+        onSuccess={() => fetchCustomers(searchTerm)}
+      />
+
       <Dialog open={qrModalOpen} onOpenChange={setQrModalOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">Mã QR Thanh toán nhanh</DialogTitle>
-            <DialogDescription>Quét mã để ghi nhận thanh toán cho đơn hàng.</DialogDescription>
+        <DialogContent className="sm:max-w-[400px] w-[95vw] sm:w-full p-4 sm:p-5 flex flex-col max-h-[96vh] overflow-hidden">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-lg">Mã QR Thanh toán nhanh</DialogTitle>
+            <DialogDescription className="text-xs">Quét mã để ghi nhận thanh toán.</DialogDescription>
           </DialogHeader>
           {activeQr && (() => {
-            const bankId = 'MB'; 
-            const accountNo = '094989498'; 
-            const accountName = 'ssss AI';
+            const bankId = bankSettings?.id || 'MB';
+            const accountNo = bankSettings?.accountNo || '';
+            const accountName = bankSettings?.accountName || '';
             const amount = activeQr.finalPrice - activeQr.paidAmount;
             const memo = activeQr.memo || `${selectedCustomer?.code || 'KH'} ${activeQr.items[0]?.course?.code || 'UGC'} ${selectedCustomer?.phone || ''}`;
-            
+
             const qrImageUrl = `https://img.vietqr.io/image/${bankId}-${accountNo}-compact.png?amount=${Math.round(amount)}&addInfo=${encodeURIComponent(memo)}&accountName=${encodeURIComponent(accountName)}`;
 
             const handleCopyImage = async () => {
-                try {
-                    toast.loading('Đang sao chép ảnh...');
-                    const response = await fetch(qrImageUrl);
-                    const blob = await response.blob();
-                    await navigator.clipboard.write([
-                        new ClipboardItem({ [blob.type]: blob })
-                    ]);
-                    toast.dismiss();
-                    toast.success('Đã sao chép ảnh QR!');
-                } catch (err) {
-                    toast.dismiss();
-                    toast.error('Trình duyệt chặn sao chép tự động. Hãy nhấn chuột phải vào ảnh > Sao chép ảnh.');
-                }
+              try {
+                toast.loading('Đang sao chép ảnh...');
+                const response = await fetch(qrImageUrl);
+                const blob = await response.blob();
+                await navigator.clipboard.write([
+                  new ClipboardItem({ [blob.type]: blob })
+                ]);
+                toast.dismiss();
+                toast.success('Đã sao chép ảnh QR!');
+              } catch (err) {
+                toast.dismiss();
+                toast.error('Trình duyệt chặn sao chép tự động. Hãy nhấn chuột phải vào ảnh > Sao chép ảnh.');
+              }
             };
 
             return (
-              <div className="flex flex-col items-center py-6 space-y-4">
-                 <div className="bg-white p-3 rounded-2xl shadow-sm border-2 border-slate-100 group relative">
-                    <img src={qrImageUrl} alt="QR Code" className="w-64 h-64 object-contain" />
-                    <Button 
-                        variant="secondary" 
-                        size="sm" 
-                        className="absolute -top-2 -right-2 h-8 w-8 rounded-full shadow-md bg-white border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={handleCopyImage}
+              <div className="flex flex-col flex-1 min-h-0 gap-2 pt-2">
+                <div className="flex-1 shrink min-h-[80px] w-full flex items-center justify-center">
+                  <div className="bg-white p-1.5 rounded-xl shadow-sm border border-slate-200 h-full max-h-[200px] w-full max-w-[200px] flex items-center justify-center relative">
+                    <img src={qrImageUrl} alt="QR Code" className="w-full h-full object-contain" />
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="absolute top-0 right-0 h-8 w-8 rounded-full shadow-md bg-white border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity translate-x-1/4 -translate-y-1/4 z-10"
+                      onClick={handleCopyImage}
                     >
-                        <FileText className="w-4 h-4" />
+                      <FileText className="w-4 h-4" />
                     </Button>
-                 </div>
-                 <div className="bg-slate-50 w-full p-4 rounded-xl space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Nội dung CK:</span>
-                      <span className="font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">{memo}</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 w-full rounded-xl border border-slate-100 shrink-0">
+                  <div className="p-3 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500">Ngân hàng:</span>
+                      <span className="font-semibold text-slate-800 uppercase">{bankId}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-slate-500">Số tiền QR:</span>
-                      <span className="font-bold text-primary">{formatCurrency(amount)}</span>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500">Số tài khoản:</span>
+                      <div className="flex items-center gap-1 group">
+                        <span className="font-semibold text-slate-800">{accountNo}</span>
+                        <button onClick={() => { navigator.clipboard.writeText(accountNo); toast.success('Đã sao chép'); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
-                 </div>
-                 
-                 <Button className="w-full h-11 bg-primary hover:bg-primary/90 font-bold" onClick={handleCopyImage}>
+                    <div className="flex justify-between items-start text-xs">
+                      <span className="text-slate-500 shrink-0">Chủ tài khoản:</span>
+                      <span className="font-semibold text-slate-800 uppercase text-right leading-tight max-w-[60%]">{accountName}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-500">Khách hàng:</span>
+                      <span className="font-semibold text-slate-800 truncate pl-4">{selectedCustomer?.name || '---'}</span>
+                    </div>
+                    <div className="border-t border-slate-200 pt-2 flex justify-between items-center">
+                      <span className="text-slate-500 text-xs">Số tiền:</span>
+                      <span className="font-bold text-base text-primary">{formatCurrency(amount)}</span>
+                    </div>
+                    <div className="flex justify-between items-start">
+                      <span className="text-slate-500 text-xs pt-1">Nội dung CK:</span>
+                      <div className="flex items-center gap-1 group">
+                        <span className="font-bold text-slate-900 bg-slate-200/50 px-2 py-0.5 rounded tracking-wide text-xs">{memo}</span>
+                        <button onClick={() => { navigator.clipboard.writeText(memo); toast.success('Đã sao chép nội dung'); }} className="text-slate-400 hover:text-slate-600 transition-colors pt-1">
+                          <Copy className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="shrink-0 space-y-1.5 mt-1 w-full">
+                  <Button className="w-full h-9 text-xs bg-primary hover:bg-primary/90 font-bold" onClick={handleCopyImage}>
                     <QrCode className="w-4 h-4 mr-2" /> Sao chép ảnh QR
-                 </Button>
+                  </Button>
+                </div>
               </div>
             );
           })()}
-          <Button variant="ghost" onClick={() => setQrModalOpen(false)} className="w-full mt-2">Đóng</Button>
+          <Button variant="ghost" onClick={() => setQrModalOpen(false)} className="w-full h-8 text-xs shrink-0">Đóng</Button>
         </DialogContent>
       </Dialog>
     </div>
