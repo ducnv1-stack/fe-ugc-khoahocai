@@ -19,13 +19,18 @@ import {
   X,
   Banknote,
   Percent,
-  Trash2,
-  FileCheck,
-  FileX,
-  UserX,
+  Calendar,
+  RotateCcw,
+  Trash,
   Clock,
+  UserX,
+  FileX,
+  Trash2,
   Copy,
-  Calendar
+  Monitor,
+  MapPin,
+  MoreVertical,
+  ChevronDownCircle
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -35,6 +40,16 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useAuth } from '@/provider/auth-provider';
 import api from '@/lib/api';
 import { toast } from 'sonner';
@@ -55,13 +70,14 @@ export default function CustomersPage() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState<'customers' | 'leads'>('customers');
+  const [activeTab, setActiveTab] = useState<'customers' | 'leads' | 'trash'>('customers');
 
   const [orderOpen, setOrderOpen] = useState(false);
   const [scheduleAssignOpen, setScheduleAssignOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
 
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [counts, setCounts] = useState({ active: 0, leads: 0, trash: 0 });
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [activeQr, setActiveQr] = useState<any>(null);
 
@@ -92,9 +108,25 @@ export default function CustomersPage() {
   const fetchCustomers = async (search?: string) => {
     try {
       setLoading(true);
-      const url = search ? `/customers?search=${search}` : '/customers';
+      let url = '/customers';
+      if (activeTab === 'trash') {
+        url = '/customers/trash';
+      }
+      if (search) {
+        url += `${url.includes('?') ? '&' : '?'}search=${search}`;
+      }
       const { data } = await api.get(url);
       setCustomers(data);
+      
+      // Update counts based on the mode - This is a quick fix. 
+      // Ideally, the backend should return these counts.
+      if (activeTab === 'trash') {
+        setCounts(prev => ({ ...prev, trash: data.length }));
+      } else {
+        const leads = data.filter((c: any) => c.isLead).length;
+        const regulars = data.filter((c: any) => !c.isLead).length;
+        setCounts(prev => ({ ...prev, active: regulars, leads: leads }));
+      }
     } catch (error) {
       toast.error('Lỗi khi tải danh sách khách hàng');
     } finally {
@@ -102,13 +134,30 @@ export default function CustomersPage() {
     }
   };
 
+  // Fetch counts independently to keep headers accurate
+  const fetchCounts = async () => {
+    try {
+      const [{ data: activeData }, { data: trashData }] = await Promise.all([
+        api.get('/customers'),
+        api.get('/customers/trash')
+      ]);
+      const leads = activeData.filter((c: any) => c.isLead).length;
+      const regulars = activeData.filter((c: any) => !c.isLead).length;
+      setCounts({ active: regulars, leads: leads, trash: trashData.length });
+    } catch (error) {}
+  };
+
+  useEffect(() => {
+    fetchCounts();
+  },[]);
+
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       fetchCustomers(searchTerm);
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm]);
+  }, [searchTerm, activeTab]);
 
   // Load bank settings once
   useEffect(() => {
@@ -121,6 +170,7 @@ export default function CustomersPage() {
   useSocket((event, data) => {
     if (event === 'payment.received') {
       fetchCustomers(searchTerm);
+      fetchCounts();
       toast.success(`Đã nhận thanh toán ${new Intl.NumberFormat('vi-VN').format(data.amount)}đ từ ${data.customerName}`, {
         description: 'Dữ liệu đã được cập nhật tự động.',
         duration: 5000,
@@ -129,6 +179,7 @@ export default function CustomersPage() {
 
     if (event === 'customer.created') {
       fetchCustomers(searchTerm);
+      fetchCounts();
       toast.info(`Có khách hàng mới: ${data.name}`, {
         description: 'Danh sách đã được làm mới.',
         icon: <UserPlus className="w-4 h-4 text-blue-500" />
@@ -156,6 +207,7 @@ export default function CustomersPage() {
         toast.success('Thêm khách hàng thành công');
       }
       fetchCustomers(searchTerm);
+      fetchCounts();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Có lỗi xảy ra');
       throw error;
@@ -287,6 +339,7 @@ export default function CustomersPage() {
       await api.delete(`/orders/${orderId}`);
       toast.success('Đã gỡ khóa học khỏi khách hàng');
       fetchCustomers(searchTerm);
+      fetchCounts();
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Lỗi khi xóa đơn hàng');
     }
@@ -305,17 +358,64 @@ export default function CustomersPage() {
   const handleDeleteLeadCustomer = async (customerId: string, customerName: string) => {
     const isConfirmed = await confirm({
       title: `Xóa khách tạm: ${customerName}`,
-      description: 'Khách này chưa thanh toán. Hành động này sẽ xóa hoàn toàn khách hàng và đơn hàng liên quan.',
-      confirmText: 'Xóa khách tạm',
+      description: 'Khách này chưa thanh toán. Hành động này sẽ xóa tạm thời và đưa vào thùng rác.',
+      confirmText: 'Đưa vào thùng rác',
       variant: 'destructive'
     });
     if (!isConfirmed) return;
     try {
-      await api.delete(`/customers/${customerId}/lead`);
-      toast.success('Dã xóa khách hàng tạm thành công');
+      await api.delete(`/customers/${customerId}`);
+      toast.success('Đã đưa khách hàng vào thùng rác');
       fetchCustomers(searchTerm);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Lỗi khi xóa khách hàng');
+    }
+  };
+
+  const handleSoftDeleteCustomer = async (customerId: string, customerName: string) => {
+    const isConfirmed = await confirm({
+      title: `Xác nhận xóa: ${customerName}`,
+      description: 'Khách hàng này sẽ được đưa vào thùng rác và có thể khôi phục sau này.',
+      confirmText: 'Xóa tạm thời',
+      variant: 'destructive'
+    });
+    if (!isConfirmed) return;
+    try {
+      await api.delete(`/customers/${customerId}`);
+      toast.success('Đã đưa khách hàng vào thùng rác');
+      fetchCustomers(searchTerm);
+      fetchCounts();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi khi xóa khách hàng');
+    }
+  };
+
+  const handleRestoreCustomer = async (customerId: string) => {
+    try {
+      await api.patch(`/customers/${customerId}/restore`);
+      toast.success('Đã khôi phục khách hàng thành công');
+      fetchCustomers(searchTerm);
+      fetchCounts();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi khi khôi phục');
+    }
+  };
+
+  const handlePermanentDeleteCustomer = async (customerId: string, customerName: string) => {
+    const isConfirmed = await confirm({
+      title: `XÓA VĨNH VIỄN: ${customerName}`,
+      description: 'Hành động này KHÔNG THỂ HOÀN TÁC. Dữ liệu khách hàng sẽ bị xóa hoàn toàn khỏi hệ thống.',
+      confirmText: 'XÓA VĨNH VIỄN',
+      variant: 'destructive'
+    });
+    if (!isConfirmed) return;
+    try {
+      await api.delete(`/customers/${customerId}/permanent`);
+      toast.success('Đã xóa vĩnh viễn khách hàng');
+      fetchCustomers(searchTerm);
+      fetchCounts();
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Lỗi khi xóa vĩnh viễn. Có thể do ràng buộc dữ liệu.');
     }
   };
 
@@ -362,7 +462,7 @@ export default function CustomersPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit">
+      <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl w-fit mb-4">
         <button
           onClick={() => setActiveTab('customers')}
           className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${activeTab === 'customers'
@@ -373,7 +473,7 @@ export default function CustomersPage() {
           <UserCircle className="w-3.5 h-3.5" />
           Học viên
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'customers' ? 'bg-slate-100 text-slate-600' : 'bg-slate-200 text-slate-500'
-            }`}>{regularCustomers.length}</span>
+            }`}>{counts.active}</span>
         </button>
         <button
           onClick={() => setActiveTab('leads')}
@@ -384,11 +484,27 @@ export default function CustomersPage() {
         >
           <Clock className="w-3.5 h-3.5" />
           Khách tạm (Chờ thanh toán)
-          {leadCustomers.length > 0 && (
+          {counts.leads > 0 && (
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'leads' ? 'bg-orange-100 text-orange-600' : 'bg-orange-200 text-orange-600'
-              }`}>{leadCustomers.length}</span>
+              }`}>{counts.leads}</span>
           )}
         </button>
+        {canManage && (
+          <button
+            onClick={() => setActiveTab('trash')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all ${activeTab === 'trash'
+                ? 'bg-rose-100 text-rose-700 shadow-sm'
+                : 'text-slate-500 hover:text-slate-700'
+              }`}
+          >
+            <Trash className="w-3.5 h-3.5" />
+            Thùng rác
+            {counts.trash > 0 && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${activeTab === 'trash' ? 'bg-rose-200 text-rose-800' : 'bg-rose-100 text-rose-500'
+                }`}>{counts.trash}</span>
+            )}
+          </button>
+        )}
       </div>
 
       <div className="relative w-full">
@@ -408,17 +524,19 @@ export default function CustomersPage() {
               <TableHead className="w-10"></TableHead>
               <TableHead className="min-w-[200px] text-[11px] font-bold">Thông tin khách</TableHead>
               <TableHead className="text-[11px] font-bold">Khóa học</TableHead>
+              <TableHead className="text-[11px] font-bold">Lịch học</TableHead>
               <TableHead className="text-[11px] font-bold">Trạng thái đơn</TableHead>
               <TableHead className="text-[11px] font-bold">Trình trạng học phí</TableHead>
+              <TableHead className="text-[11px] font-bold">Ghi chú</TableHead>
               <TableHead className="text-[11px] font-bold">Nhân viên</TableHead>
               <TableHead className="text-right text-[11px] font-bold">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow><TableCell colSpan={7} className="h-32 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2" /> Đang tải...</TableCell></TableRow>
+              <TableRow><TableCell colSpan={9} className="h-32 text-center text-slate-400"><Loader2 className="animate-spin inline mr-2" /> Đang tải...</TableCell></TableRow>
             ) : displayedCustomers.length === 0 ? (
-              <TableRow><TableCell colSpan={7} className="h-32 text-center text-slate-400 italic">
+              <TableRow><TableCell colSpan={9} className="h-32 text-center text-slate-400 italic">
                 {activeTab === 'leads' ? '✅ Không có khách tạm nào — tất cả đã thanh toán!' : 'Không có dữ liệu khách hàng.'}
               </TableCell></TableRow>
             ) : (
@@ -473,6 +591,139 @@ export default function CustomersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <div className="flex flex-col gap-1 items-start">
+                          {customer.schedules?.length > 0 ? (
+                            customer.schedules.map((item: any, idx: number) => {
+                              const s = item.schedule;
+                              if (!s) return null;
+                              
+                              const now = new Date();
+                              const start = new Date(s.startTime);
+                              const end = new Date(s.endTime);
+                              
+                              let status: 'upcoming' | 'ongoing' | 'completed' = 'upcoming';
+                              if (now >= start && now <= end) status = 'ongoing';
+                              else if (now > end) status = 'completed';
+
+                              const dateStr = start.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+                              const timeStr = `${start.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${end.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+                              const fullDateStr = start.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit' });
+                              const isAttended = item.isAttended;
+                              
+                              const statusStyles = {
+                                upcoming: 'bg-indigo-50 text-indigo-600 border-indigo-100',
+                                ongoing: 'bg-emerald-50 text-emerald-600 border-emerald-100',
+                                completed: 'bg-slate-50 text-slate-400 border-slate-100'
+                              };
+
+                              return (
+                                <Tooltip key={idx}>
+                                <TooltipTrigger
+                                  render={
+                                    <Badge 
+                                      variant="outline" 
+                                      className={cn(
+                                        "text-[9px] px-1.5 py-0 h-4 font-medium border shadow-none flex items-center gap-1 cursor-help max-w-[200px]",
+                                        statusStyles[status]
+                                      )}
+                                    >
+                                      {s.isOnline ? <Monitor className="w-2.5 h-2.5" /> : <MapPin className="w-2.5 h-2.5" />}
+                                      <span className="shrink-0">{dateStr} ({timeStr}) - </span>
+                                      <span className="truncate">{s.course?.code || 'N/A'}</span>
+                                      {isAttended && <CheckCircle2 className="w-2.5 h-2.5 text-emerald-500 ml-0.5" />}
+                                    </Badge>
+                                  }
+                                />
+                                  <TooltipContent side="right" className="p-0 border-none bg-slate-900 shadow-2xl overflow-hidden min-w-[240px] flex flex-col items-stretch">
+                                      {/* Header */}
+                                      <div className="p-3 bg-white/5 border-b border-white/10 w-full">
+                                        <div className="flex justify-between items-start mb-1">
+                                          <h4 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest opacity-70">Chi tiết lịch học</h4>
+                                          {isAttended ? (
+                                            <Badge className="bg-emerald-500/20 text-emerald-400 border-none text-[8px] h-3.5 px-1.5 gap-1">
+                                              <CheckCircle2 className="w-2 h-2" /> Đã điểm danh
+                                            </Badge>
+                                          ) : (
+                                            <Badge className="bg-slate-500/20 text-slate-400 border-none text-[8px] h-3.5 px-1.5">
+                                              Chưa điểm danh
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <p className="text-[13px] font-bold leading-tight text-white">{s.course?.name}</p>
+                                        <p className="text-[10px] text-white/50 mt-1 font-medium">{fullDateStr}</p>
+                                      </div>
+                                      
+                                      {/* Content body */}
+                                      <div className="p-3 space-y-3 w-full">
+                                        <div className="flex items-start gap-2.5">
+                                          <UserCircle className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
+                                          <div className="flex flex-col">
+                                            <span className="text-white/40 text-[9px] uppercase font-bold">Giảng viên</span>
+                                            <span className="text-[11px] font-medium text-white">{s.instructor?.name || 'Chưa gán'}</span>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="flex items-start gap-2.5">
+                                          <Clock className="w-3.5 h-3.5 text-emerald-400 shrink-0 mt-0.5" />
+                                          <div className="flex flex-col">
+                                            <span className="text-white/40 text-[9px] uppercase font-bold">Thời gian</span>
+                                            <span className="text-[11px] font-medium text-white">{timeStr}</span>
+                                          </div>
+                                        </div>
+                                        
+                                        <div className="flex items-start gap-2.5">
+                                          {s.isOnline ? <Monitor className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" /> : <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />}
+                                          <div className="flex flex-col">
+                                            <span className="text-white/40 text-[9px] uppercase font-bold">{s.isOnline ? 'Lớp Online' : 'Phòng học'}</span>
+                                            {s.isOnline ? (
+                                              s.meetingUrl ? (
+                                                <div className="flex flex-col gap-1.5 pt-1">
+                                                  <a href={s.meetingUrl} target="_blank" rel="noreferrer" className="inline-flex items-center justify-center bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold py-1 px-3 rounded shadow-sm transition-colors no-underline" onClick={e => e.stopPropagation()}>
+                                                    Vào học ngay
+                                                  </a>
+                                                  <span className="text-[9px] text-white/30 truncate max-w-[180px]">{s.meetingUrl}</span>
+                                                </div>
+                                              ) : (
+                                                <span className="text-white/30 text-[11px] italic">Chưa có link</span>
+                                              )
+                                            ) : (
+                                              <span className="text-[11px] font-medium text-white">{s.room || 'TBA'}</span>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {s.notes && (
+                                          <div className="flex items-start gap-2.5 pt-1 border-t border-white/5 mt-1">
+                                            <FileText className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                                            <div className="flex flex-col">
+                                              <span className="text-white/40 text-[9px] uppercase font-bold">Ghi chú buổi học</span>
+                                              <span className="text-[10px] text-white/70 italic leading-snug">{s.notes}</span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Status Footer */}
+                                      <div className="px-3 py-2 bg-black/20 border-t border-white/5 flex items-center justify-between w-full">
+                                         <span className="text-white/30 text-[9px] uppercase font-bold">Trạng thái</span>
+                                         <Badge variant="outline" className={cn(
+                                           "text-[9px] h-4.5 px-2 border-none font-bold shadow-none",
+                                           status === 'ongoing' ? "bg-emerald-500/20 text-emerald-400" : 
+                                           status === 'upcoming' ? "bg-indigo-500/20 text-indigo-400" : "bg-slate-500/20 text-slate-400"
+                                         )}>
+                                           {status === 'ongoing' ? 'Đang học' : status === 'upcoming' ? 'Sắp học' : 'Kết thúc'}
+                                         </Badge>
+                                      </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              );
+                            })
+                          ) : (
+                            <span className="text-[10px] text-slate-300 italic">Chưa gán</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex flex-col gap-0.5">
                           {paidOrdersCount > 0 && <span className="text-[10px] text-emerald-600 font-medium flex items-center gap-1"><CheckCircle2 className="w-2.5 h-2.5" /> {paidOrdersCount} Đã xong</span>}
                           {pendingOrdersCount > 0 && <span className="text-[10px] text-rose-500 font-medium flex items-center gap-1"><AlertCircle className="w-2.5 h-2.5" /> {pendingOrdersCount} Chờ xử lý</span>}
@@ -497,33 +748,114 @@ export default function CustomersPage() {
                         </div>
                       </TableCell>
                       <TableCell>
+                        <div className="max-w-[150px]">
+                          {customer.notes ? (
+                            <TooltipProvider delay={300}>
+                              <Tooltip>
+                                <TooltipTrigger
+                                  render={
+                                    <p className="text-[10px] text-slate-500 line-clamp-6 leading-snug cursor-help italic whitespace-pre-line">
+                                      {customer.notes}
+                                    </p>
+                                  }
+                                />
+                                <TooltipContent className="max-w-xs bg-slate-900 border-none text-white text-[11px] p-2 shadow-2xl">
+                                  <div className="flex flex-col gap-1">
+                                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Ghi chú khách hàng</span>
+                                    <span>{customer.notes}</span>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <span className="text-[10px] text-slate-300">---</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <span className="text-[10px] text-slate-500 truncate block max-w-[80px]">{customer.assignedSale?.name || '---'}</span>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {customer.isLead && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2 text-[10px] text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-rose-100"
-                              onClick={(e) => { e.stopPropagation(); handleDeleteLeadCustomer(customer.id, customer.name); }}
-                            >
-                              <UserX className="w-3 h-3 mr-1" /> Xóa khách tạm
-                            </Button>
+                          {activeTab === 'trash' ? (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-[10px] text-emerald-600 border-emerald-100 hover:bg-emerald-50"
+                                onClick={(e) => { e.stopPropagation(); handleRestoreCustomer(customer.id); }}
+                              >
+                                <RotateCcw className="w-3 h-3 mr-1" /> Khôi phục
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-7 px-2 text-[10px] text-rose-600 border-rose-100 hover:bg-rose-50"
+                                onClick={(e) => { e.stopPropagation(); handlePermanentDeleteCustomer(customer.id, customer.name); }}
+                              >
+                                <Trash className="w-3 h-3 mr-1" /> Xóa vĩnh viễn
+                              </Button>
+                            </>
+                          ) : (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button variant="ghost" size="sm" className="h-7 w-7 p-0 hover:bg-slate-100" onClick={(e) => e.stopPropagation()}>
+                                    <MoreVertical className="w-4 h-4 text-slate-500" />
+                                  </Button>
+                                }
+                              />
+                              <DropdownMenuContent align="end" className="w-48 text-[11px]">
+                                <DropdownMenuGroup>
+                                  <DropdownMenuLabel className="text-[10px] font-bold text-slate-500">Thao tác</DropdownMenuLabel>
+                                </DropdownMenuGroup>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  className="cursor-pointer text-indigo-600 focus:text-indigo-700 focus:bg-indigo-50"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedCustomer(customer); setOrderOpen(true); }}
+                                >
+                                  <Plus className="w-3.5 h-3.5 mr-2" /> Gán khóa học
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  className="cursor-pointer text-blue-600 focus:text-blue-700 focus:bg-blue-50"
+                                  onClick={(e) => { e.stopPropagation(); setSelectedCustomer(customer); setScheduleAssignOpen(true); }}
+                                >
+                                  <Calendar className="w-3.5 h-3.5 mr-2" /> Gán lịch học
+                                </DropdownMenuItem>
+                                
+                                {customer.isLead && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      className="cursor-pointer text-rose-500 focus:text-rose-600 focus:bg-rose-50"
+                                      onClick={(e) => { e.stopPropagation(); handleDeleteLeadCustomer(customer.id, customer.name); }}
+                                    >
+                                      <Trash className="w-3.5 h-3.5 mr-2" /> Xóa tạm
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+
+                                {!customer.isLead && canManage && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      className="cursor-pointer text-rose-600 focus:text-rose-700 focus:bg-rose-50"
+                                      onClick={(e) => { e.stopPropagation(); handleSoftDeleteCustomer(customer.id, customer.name); }}
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5 mr-2" /> Xóa khách hàng
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                           )}
-                          <Button variant="outline" size="sm" className="h-7 px-2 border-primary/20 hover:bg-primary/5 text-primary text-[10px]" onClick={(e) => { e.stopPropagation(); setSelectedCustomer(customer); setOrderOpen(true); }}>
-                            <Plus className="w-3 h-3 mr-1" /> Gán khóa học
-                          </Button>
-                          <Button variant="outline" size="sm" className="h-7 px-2 border-indigo-200 hover:bg-indigo-50 text-indigo-600 text-[10px]" onClick={(e) => { e.stopPropagation(); setSelectedCustomer(customer); setScheduleAssignOpen(true); }}>
-                            <Calendar className="w-3 h-3 mr-1" /> Gán lịch học
-                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
 
                     {isExpanded && (
                       <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                        <TableCell colSpan={7} className="py-2 pl-9 pr-4">
+                        <TableCell colSpan={9} className="py-2 pl-9 pr-4">
                           <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
                             <div className="p-2 px-3 bg-slate-50/50 border-b flex justify-between items-center mt-0">
                               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Lịch sử đơn hàng & Thanh toán</h4>

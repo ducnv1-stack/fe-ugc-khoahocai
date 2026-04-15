@@ -132,6 +132,7 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
           discountType: 'FIXED',
           discountValue: Number(discountValue),
           primaryCourseId: selectedCourseId,
+          customerNotes: formData.notes,
         });
 
         setOrderResult(res.data);
