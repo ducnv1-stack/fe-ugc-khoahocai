@@ -88,11 +88,15 @@ export default function LogsPage() {
           )
         };
       case 'CREATE_ORDER':
+      case 'QUICK_CREATE_ORDER':
+        const isQuick = log.action === 'QUICK_CREATE_ORDER';
         return {
-          icon: <ShoppingBag className="w-4 h-4 text-teal-600" />,
-          badgeClass: 'text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100',
-          iconBg: 'bg-teal-100',
-          title: 'Gán khóa học (Tạo đơn)',
+          icon: isQuick ? <UserPlus className="w-4 h-4 text-emerald-600" /> : <ShoppingBag className="w-4 h-4 text-teal-600" />,
+          badgeClass: isQuick 
+            ? 'text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100' 
+            : 'text-teal-700 bg-teal-50 border-teal-200 hover:bg-teal-100',
+          iconBg: isQuick ? 'bg-emerald-100' : 'bg-teal-100',
+          title: isQuick ? 'Tạo khách mới' : 'Gán khóa học (Tạo đơn)',
           detailsComponent: (
              <div className="flex flex-col text-xs font-mono">
               <span className="font-bold text-slate-800">{log.newData?.courses || ''}</span>

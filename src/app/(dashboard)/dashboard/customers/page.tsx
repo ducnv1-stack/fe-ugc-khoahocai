@@ -30,7 +30,8 @@ import {
   Monitor,
   MapPin,
   MoreVertical,
-  ChevronDownCircle
+  ChevronDownCircle,
+  ChevronLeft
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -105,28 +106,29 @@ export default function CustomersPage() {
 
   const canManage = hasPermission('customers.manage');
 
-  const fetchCustomers = async (search?: string) => {
+  const [page, setPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const limit = 15;
+
+  const fetchCustomers = async (search?: string, currentPage = page) => {
     try {
       setLoading(true);
       let url = '/customers';
+      const params = new URLSearchParams();
+      
       if (activeTab === 'trash') {
         url = '/customers/trash';
-      }
-      if (search) {
-        url += `${url.includes('?') ? '&' : '?'}search=${search}`;
-      }
-      const { data } = await api.get(url);
-      setCustomers(data);
-      
-      // Update counts based on the mode - This is a quick fix. 
-      // Ideally, the backend should return these counts.
-      if (activeTab === 'trash') {
-        setCounts(prev => ({ ...prev, trash: data.length }));
       } else {
-        const leads = data.filter((c: any) => c.isLead).length;
-        const regulars = data.filter((c: any) => !c.isLead).length;
-        setCounts(prev => ({ ...prev, active: regulars, leads: leads }));
+        params.append('type', activeTab === 'customers' ? 'regular' : 'lead');
       }
+
+      if (search) params.append('search', search);
+      params.append('page', currentPage.toString());
+      params.append('limit', limit.toString());
+
+      const { data } = await api.get(`${url}?${params.toString()}`);
+      setCustomers(data.items);
+      setTotalCount(data.total);
     } catch (error) {
       toast.error('Lỗi khi tải danh sách khách hàng');
     } finally {
@@ -134,16 +136,10 @@ export default function CustomersPage() {
     }
   };
 
-  // Fetch counts independently to keep headers accurate
   const fetchCounts = async () => {
     try {
-      const [{ data: activeData }, { data: trashData }] = await Promise.all([
-        api.get('/customers'),
-        api.get('/customers/trash')
-      ]);
-      const leads = activeData.filter((c: any) => c.isLead).length;
-      const regulars = activeData.filter((c: any) => !c.isLead).length;
-      setCounts({ active: regulars, leads: leads, trash: trashData.length });
+      const { data } = await api.get('/customers/stats');
+      setCounts(data);
     } catch (error) {}
   };
 
@@ -152,12 +148,17 @@ export default function CustomersPage() {
   },[]);
 
   useEffect(() => {
+    setPage(1);
+  }, [activeTab]);
+
+  useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
-      fetchCustomers(searchTerm);
+      if (searchTerm) setPage(1);
+      fetchCustomers(searchTerm, searchTerm ? 1 : page);
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [searchTerm, activeTab]);
+  }, [searchTerm, activeTab, page]);
 
   // Load bank settings once
   useEffect(() => {
@@ -440,12 +441,7 @@ export default function CustomersPage() {
     return { totalSpent, totalDue, hasUnpaid, courseCount, paidOrdersCount, pendingOrdersCount, tags };
   };
 
-  const leadCustomers = customers.filter((c: any) => c.isLead);
-  const regularCustomers = customers.filter((c: any) => !c.isLead);
-  const displayedCustomers = 
-    activeTab === 'leads' ? leadCustomers : 
-    activeTab === 'trash' ? customers : 
-    regularCustomers;
+  const displayedCustomers = customers;
 
   return (
     <div className="space-y-4 pb-10">
@@ -1090,6 +1086,57 @@ export default function CustomersPage() {
             )}
           </TableBody>
         </Table>
+        
+        {/* Pagination UI */}
+        <div className="px-4 py-3 border-t bg-slate-50/50 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <p className="text-[11px] text-slate-500">
+              Hiển thị <span className="font-bold text-slate-700">{customers.length > 0 ? (page - 1) * limit + 1 : 0}</span> đến <span className="font-bold text-slate-700">{Math.min(page * limit, totalCount)}</span> trên tổng số <span className="font-bold text-slate-700">{totalCount}</span> khách hàng
+            </p>
+          </div>
+          
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              disabled={page === 1 || loading}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            
+            {/* Simple Page Numbers */}
+            {Array.from({ length: Math.min(5, Math.ceil(totalCount / limit)) }, (_, i) => {
+              const pageNum = i + 1;
+              // Very basic logic for showing nearby pages
+              return (
+                <Button
+                  key={pageNum}
+                  variant={page === pageNum ? "default" : "outline"}
+                  size="sm"
+                  className={cn("h-8 w-8 p-0 text-xs", page === pageNum ? "bg-primary" : "")}
+                  onClick={() => setPage(pageNum)}
+                  disabled={loading}
+                >
+                  {pageNum}
+                </Button>
+              );
+            })}
+            
+            {Math.ceil(totalCount / limit) > 5 && <span className="text-slate-400 px-1 text-xs">...</span>}
+            
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 w-8 p-0"
+              onClick={() => setPage(prev => Math.min(Math.ceil(totalCount / limit), prev + 1))}
+              disabled={page >= Math.ceil(totalCount / limit) || loading}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
       </div>
 
       <CustomerFormDialog
