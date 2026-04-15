@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/provider/auth-provider';
@@ -52,6 +53,8 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
   const [showQRResult, setShowQRResult] = useState(false);
   const [orderResult, setOrderResult] = useState<any>(null);
   const [copied, setCopied] = useState(false);
+  const [scheduleList, setScheduleList] = useState<any[]>([]);
+  const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const [bankSettings, setBankSettings] = useState<{ id: string; accountNo: string; accountName: string } | null>(null);
 
   useEffect(() => {
@@ -101,6 +104,21 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
     }
   }, [open, customer, user?.id]);
 
+  useEffect(() => {
+    if (open && selectedCourseId && isQuickQR) {
+      // Load upcoming schedules for selected course
+      api.get(`/schedules?courseId=${selectedCourseId}`).then(res => {
+        // Filter only upcoming classes with capacity
+        const now = new Date();
+        const upcoming = res.data.filter((s: any) => 
+          new Date(s.startTime) > now && 
+          s._count.students < s.maxCapacity
+        );
+        setScheduleList(upcoming);
+      }).catch(console.error);
+    }
+  }, [open, selectedCourseId, isQuickQR]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -118,6 +136,18 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
 
         setOrderResult(res.data);
         setShowQRResult(true);
+
+        // Auto-assign to schedule if selected
+        if (selectedScheduleId && res.data.customer?.id) {
+          try {
+            await api.post(`/schedules/${selectedScheduleId}/students`, { 
+              customerId: res.data.customer.id 
+            });
+          } catch (err) {
+            console.error('Failed to auto-assign student to schedule', err);
+          }
+        }
+
         toast.success('Đã tạo khách hàng và mã QR thành công!');
       } else {
         // Luồng lưu khách bình thường
@@ -320,6 +350,33 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
                   </div>
                 </div>
               )}
+
+              {isQuickQR && scheduleList.length > 0 && (
+                <div className="grid gap-1.5 animate-in fade-in slide-in-from-top-1 duration-300">
+                  <Label className="text-xs">Chọn lớp học (không bắt buộc)</Label>
+                  <select
+                    value={selectedScheduleId}
+                    onChange={e => setSelectedScheduleId(e.target.value)}
+                    className="w-full h-9 rounded-md border border-indigo-200 bg-white px-3 py-1 text-sm shadow-sm transition-colors focus:ring-1 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">-- Để sau --</option>
+                    {scheduleList.map(s => {
+                      const date = new Date(s.startTime);
+                      const dayName = date.toLocaleDateString('vi-VN', { weekday: 'long' });
+                      const dateStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+                      const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                      const instructorName = s.instructor?.name || 'Chưa gán GV';
+                      const remaining = s.maxCapacity - s._count.students;
+
+                      return (
+                        <option key={s.id} value={s.id}>
+                          {dayName}, {dateStr} - {timeStr} | {instructorName} (Còn {remaining} chỗ)
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
             </div>
           )}
 
@@ -357,11 +414,12 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
 
           <div className="grid gap-1.5">
             <Label htmlFor="cust-notes">Ghi chú & Yêu cầu</Label>
-            <Input
+            <Textarea
               id="cust-notes"
               value={formData.notes}
               onChange={e => setFormData({ ...formData, notes: e.target.value })}
-              placeholder="VD: Khách cần học tối thứ 7..."
+              placeholder="VD: Khách cần học tối thứ 7, đã có nền tảng cơ bản..."
+              className="min-h-[100px] bg-slate-50/50 border-slate-200"
             />
           </div>
 

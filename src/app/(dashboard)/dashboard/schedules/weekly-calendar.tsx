@@ -5,7 +5,8 @@ import { format, addDays, startOfWeek, addHours, differenceInMinutes, startOfDay
 import { vi } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
-import { Users, Clock } from 'lucide-react';
+import { Users, Clock, ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface WeeklyCalendarProps {
   schedules: any[];
@@ -19,11 +20,18 @@ const CELL_HEIGHT = 60; // 60px per hour
 
 export function WeeklyCalendar({ schedules, onEventClick, onTimeUpdate }: WeeklyCalendarProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [draggingEvent, setDraggingEvent] = useState<any | null>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
   
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   }, [weekStart]);
+
+  const goToPrevWeek = () => setCurrentDate(addDays(currentDate, -7));
+  const goToNextWeek = () => setCurrentDate(addDays(currentDate, 7));
+  const goToToday = () => setCurrentDate(new Date());
 
   const getPosition = (date: Date) => {
     const hours = date.getHours();
@@ -37,6 +45,54 @@ export function WeeklyCalendar({ schedules, onEventClick, onTimeUpdate }: Weekly
     return (duration / 60) * CELL_HEIGHT;
   };
 
+  const handleDragStart = (e: React.DragEvent, schedule: any) => {
+    setDraggingEvent(schedule);
+    e.dataTransfer.setData('scheduleId', schedule.id);
+    e.dataTransfer.effectAllowed = 'move';
+    
+    // Add a ghost image or just let browser handle it
+    const ghost = e.currentTarget.cloneNode(true) as HTMLElement;
+    ghost.style.opacity = '0.5';
+    ghost.style.position = 'absolute';
+    ghost.style.top = '-1000px';
+    document.body.appendChild(ghost);
+    e.dataTransfer.setDragImage(ghost, 0, 0);
+    setTimeout(() => document.body.removeChild(ghost), 0);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, dayIdx: number) => {
+    e.preventDefault();
+    if (!draggingEvent || !gridRef.current) return;
+
+    const rect = gridRef.current.getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    
+    // Calculate total minutes from 7:00 AM
+    // Round to nearest 30 minutes for snapping
+    const totalMinutes = Math.round((y / CELL_HEIGHT) * 60 / 30) * 30;
+    const hours = Math.floor(totalMinutes / 60) + 7;
+    const minutes = totalMinutes % 60;
+
+    const originalStart = new Date(draggingEvent.startTime);
+    const originalEnd = new Date(draggingEvent.endTime);
+    const durationMinutes = differenceInMinutes(originalEnd, originalStart);
+
+    // New start time on the dropped day
+    const targetDay = weekDays[dayIdx];
+    const newStart = new Date(targetDay);
+    newStart.setHours(hours, minutes, 0, 0);
+    
+    const newEnd = new Date(newStart.getTime() + durationMinutes * 60000);
+
+    onTimeUpdate(draggingEvent.id, newStart, newEnd);
+    setDraggingEvent(null);
+  };
+
   // Filter schedules for the current week
   const visibleSchedules = useMemo(() => {
     return schedules.filter(s => {
@@ -47,7 +103,33 @@ export function WeeklyCalendar({ schedules, onEventClick, onTimeUpdate }: Weekly
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col h-[700px]">
-      {/* Header */}
+      {/* Navigation & Title */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+        <div className="flex items-center gap-4">
+          <h2 className="text-sm font-bold text-slate-700">
+            Tháng {format(weekStart, 'MM/yyyy')}
+          </h2>
+          <div className="flex items-center bg-slate-100 rounded-lg p-1">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goToPrevWeek}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <Button variant="ghost" size="sm" className="h-7 px-3 text-[10px] font-bold" onClick={goToToday}>
+              Hôm nay
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goToNextWeek}>
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <CalendarIcon className="w-4 h-4 text-slate-400" />
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            Tuần: {format(weekStart, 'dd/MM')} - {format(addDays(weekStart, 6), 'dd/MM')}
+          </span>
+        </div>
+      </div>
+
+      {/* Header (Days) */}
       <div className="flex bg-slate-50 border-b border-slate-200 shrink-0">
         <div className="w-16 border-r border-slate-200" />
         <div className="flex-1 grid grid-cols-7">
@@ -67,7 +149,7 @@ export function WeeklyCalendar({ schedules, onEventClick, onTimeUpdate }: Weekly
       </div>
 
       {/* Grid Body */}
-      <div className="flex-1 overflow-y-auto relative">
+      <div className="flex-1 overflow-y-auto relative" id="calendar-grid" ref={gridRef}>
         <div className="flex">
           {/* Time Gutter */}
           <div className="w-16 shrink-0 bg-slate-50/50">
@@ -81,7 +163,12 @@ export function WeeklyCalendar({ schedules, onEventClick, onTimeUpdate }: Weekly
           {/* Grid Columns */}
           <div className="flex-1 grid grid-cols-7 relative">
             {DAYS.map(dayIdx => (
-              <div key={dayIdx} className="border-r border-slate-100 last:border-r-0 h-[960px] relative">
+              <div 
+                key={dayIdx} 
+                className="border-r border-slate-100 last:border-r-0 h-[960px] relative bg-transparent"
+                onDragOver={handleDragOver}
+                onDrop={(e) => handleDrop(e, dayIdx)}
+              >
                 {HOURS.map(hour => (
                   <div key={hour} className="h-[60px] border-b border-slate-50" />
                 ))}
@@ -101,10 +188,12 @@ export function WeeklyCalendar({ schedules, onEventClick, onTimeUpdate }: Weekly
                     return (
                       <div
                         key={schedule.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, schedule)}
                         onClick={() => onEventClick(schedule)}
                         style={{ top: `${top}px`, height: `${height}px` }}
                         className={cn(
-                          "absolute left-1 right-1 rounded-lg p-2 shadow-sm border-l-4 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md z-10 overflow-hidden group",
+                          "absolute left-1 right-1 rounded-lg p-2 shadow-sm border-l-4 cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md z-10 overflow-hidden group active:opacity-50",
                           isFull 
                             ? "bg-rose-50 border-rose-500 hover:bg-rose-100" 
                             : "bg-indigo-50 border-indigo-500 hover:bg-indigo-100"
@@ -124,11 +213,16 @@ export function WeeklyCalendar({ schedules, onEventClick, onTimeUpdate }: Weekly
                         <p className="text-[11px] font-bold text-slate-800 leading-tight line-clamp-2">
                           {schedule.course?.name}
                         </p>
-                        <div className="mt-auto flex items-center gap-2 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="flex items-center gap-1 text-[9px] font-bold text-slate-600">
+                        <div className="mt-auto flex items-center justify-between pt-1">
+                          <div className="flex items-center gap-1.5 text-[9px] font-bold text-slate-600">
                             <Users className="w-2.5 h-2.5" />
                             {registered}/{capacity}
                           </div>
+                          {schedule.isOnline ? (
+                            <span className="text-[8px] font-extrabold text-blue-600 bg-blue-100/50 px-1 rounded uppercase">On</span>
+                          ) : (
+                            <span className="text-[8px] font-extrabold text-orange-600 bg-orange-100/50 px-1 rounded uppercase">Off</span>
+                          )}
                         </div>
                       </div>
                     );

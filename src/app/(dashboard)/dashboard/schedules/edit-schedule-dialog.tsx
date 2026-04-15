@@ -21,17 +21,27 @@ import {
 import { Checkbox } from '@/components/ui/checkbox';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar as CalendarIcon, Clock, Users, Repeat, Loader2, Info } from 'lucide-react';
+import { 
+  Users, 
+  Calendar as CalendarIcon, 
+  Clock, 
+  Repeat, 
+  Loader2, 
+  Link,
+  Info,
+  Edit2 
+} from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { vi } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import api from '@/lib/api';
 import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
 
-interface CreateScheduleDialogProps {
+interface EditScheduleDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  schedule: any | null;
 }
 
 const DAYS_OF_WEEK = [
@@ -44,7 +54,7 @@ const DAYS_OF_WEEK = [
   { id: 0, label: 'Chủ Nhật' },
 ];
 
-export function CreateScheduleDialog({ open, onOpenChange, onSuccess }: CreateScheduleDialogProps) {
+export function EditScheduleDialog({ open, onOpenChange, onSuccess, schedule }: EditScheduleDialogProps) {
   const [courses, setCourses] = useState<any[]>([]);
   const [instructors, setInstructors] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -79,7 +89,7 @@ export function CreateScheduleDialog({ open, onOpenChange, onSuccess }: CreateSc
       if (count < formData.totalSessions) {
         currentDate = addDays(currentDate, 1);
       }
-      if (currentDate.getTime() > addDays(new Date(formData.startDate), 365 * 2).getTime()) break; // Limit 2 years
+      if (currentDate.getTime() > addDays(new Date(formData.startDate), 365 * 2).getTime()) break;
     }
     return lastDate;
   };
@@ -87,19 +97,44 @@ export function CreateScheduleDialog({ open, onOpenChange, onSuccess }: CreateSc
   const seriesEndDate = getSeriesEndDate();
 
   useEffect(() => {
-    if (open) {
+    if (open && schedule) {
+      const start = new Date(schedule.startTime);
+      const end = new Date(schedule.endTime);
+      
+      setFormData({
+        courseId: schedule.courseId,
+        instructorId: schedule.instructorId,
+        startDate: start.toISOString().split('T')[0],
+        startTime: start.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        endTime: end.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+        maxCapacity: schedule.maxCapacity || 10,
+        meetingUrl: schedule.meetingUrl || '',
+        notes: schedule.notes || '',
+        isOnline: schedule.isOnline ?? true,
+        isRecurring: false, // Default to false when opening an existing one
+        selectedDays: [],
+        totalSessions: 1,
+      });
       fetchData();
     }
-  }, [open]);
+  }, [open, schedule]);
+
+  const toggleDay = (day: number) => {
+    setFormData(prev => ({
+      ...prev,
+      selectedDays: prev.selectedDays.includes(day)
+        ? prev.selectedDays.filter(d => d !== day)
+        : [...prev.selectedDays, day]
+    }));
+  };
 
   const fetchData = async () => {
     try {
       const [coursesRes, usersRes] = await Promise.all([
         api.get('/courses'),
-        api.get('/users') // Needs to filter by role in real app, but for now let's assume all users
+        api.get('/users')
       ]);
       setCourses(coursesRes.data);
-      // Filter for instructors if role info is available
       setInstructors(usersRes.data);
     } catch (err) {
       toast.error('Lỗi khi tải dữ liệu cấu hình');
@@ -117,7 +152,7 @@ export function CreateScheduleDialog({ open, onOpenChange, onSuccess }: CreateSc
       const startDateTime = new Date(`${formData.startDate}T${formData.startTime}`);
       const endDateTime = new Date(`${formData.startDate}T${formData.endTime}`);
 
-      const payload = {
+      await api.patch(`/schedules/${schedule.id}`, {
         courseId: formData.courseId,
         instructorId: formData.instructorId,
         startTime: startDateTime,
@@ -130,35 +165,24 @@ export function CreateScheduleDialog({ open, onOpenChange, onSuccess }: CreateSc
           daysOfWeek: formData.selectedDays,
           totalSessions: Number(formData.totalSessions),
         } : null
-      };
-
-      await api.post('/schedules', payload);
-      toast.success(formData.isRecurring ? 'Đã tạo chuỗi lịch học thành công' : 'Đã tạo lịch học thành công');
+      });
+      toast.success('Cập nhật lịch học thành công');
       onSuccess();
       onOpenChange(false);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Lỗi khi tạo lịch học');
+      toast.error(err.response?.data?.message || 'Lỗi khi cập nhật lịch học');
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleDay = (day: number) => {
-    setFormData(prev => ({
-      ...prev,
-      selectedDays: prev.selectedDays.includes(day)
-        ? prev.selectedDays.filter(d => d !== day)
-        : [...prev.selectedDays, day]
-    }));
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[450px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-indigo-600" />
-            Tạo Lịch Học Mới
+            <Edit2 className="w-5 h-5 text-indigo-600" />
+            Chỉnh Sửa Thông Tin Lịch Học
           </DialogTitle>
         </DialogHeader>
 
@@ -168,45 +192,28 @@ export function CreateScheduleDialog({ open, onOpenChange, onSuccess }: CreateSc
               <Label className="text-xs font-bold text-slate-700">Khóa học *</Label>
               <Select 
                 value={formData.courseId} 
-                onValueChange={(val) => {
-                   const course = courses.find(c => c.id === val);
-                   if (course && course.duration && formData.startTime) {
-                      const [hours, minutes] = formData.startTime.split(':').map(Number);
-                      const start = new Date();
-                      start.setHours(hours, minutes, 0);
-                      const end = new Date(start.getTime() + course.duration * 60000);
-                      const endTimeStr = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
-                      setFormData(prev => ({ ...prev, courseId: val || '', endTime: endTimeStr }));
-                   } else {
-                      setFormData({ ...formData, courseId: val || '' });
-                   }
-                }}
+                onValueChange={(val) => setFormData({ ...formData, courseId: val || '' })}
               >
                 <SelectTrigger className="h-9 text-xs w-full bg-slate-50 border-slate-200 overflow-hidden flex items-center justify-between">
                   <SelectValue placeholder="Chọn khóa học">
-                    {courses.find(c => c.id === formData.courseId) && (
-                      <span className="truncate max-w-[200px] block">
-                        {courses.find(c => c.id === formData.courseId).name}
-                      </span>
-                    )}
+                    <span className="truncate max-w-[200px] block">
+                      {courses.find(c => c.id === formData.courseId)?.name || schedule?.course?.name}
+                    </span>
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {courses.length > 0 ? (
-                    courses.map(c => (
-                      <SelectItem key={c.id} value={c.id} className="text-xs py-2">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900">{c.name}</span>
-                          <span className="text-[10px] text-slate-500">{c.code}</span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled className="text-xs italic">Không có dữ liệu</SelectItem>
-                  )}
+                  {courses.map(c => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs py-2">
+                       <div className="flex flex-col">
+                        <span className="font-bold text-slate-900">{c.name}</span>
+                        <span className="text-[10px] text-slate-500">{c.code}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
               <Label className="text-xs font-bold text-slate-700">Giảng viên *</Label>
               <Select 
@@ -215,82 +222,115 @@ export function CreateScheduleDialog({ open, onOpenChange, onSuccess }: CreateSc
               >
                 <SelectTrigger className="h-9 text-xs w-full bg-slate-50 border-slate-200 overflow-hidden flex items-center justify-between">
                   <SelectValue placeholder="Chọn giảng viên">
-                    {instructors.find(u => u.id === formData.instructorId) && (
-                      <span className="truncate max-w-[200px] block">
-                        {instructors.find(u => u.id === formData.instructorId).name}
-                      </span>
-                    )}
+                    <span className="truncate max-w-[200px] block">
+                      {instructors.find(u => u.id === formData.instructorId)?.name || schedule?.instructor?.name}
+                    </span>
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
-                  {instructors.length > 0 ? (
-                    instructors.map(u => (
-                      <SelectItem key={u.id} value={u.id} className="text-xs py-2">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900">{u.name}</span>
-                          <span className="text-[10px] text-slate-500">Giảng viên</span>
-                        </div>
-                      </SelectItem>
-                    ))
-                  ) : (
-                    <SelectItem value="none" disabled className="text-xs italic">Không có dữ liệu</SelectItem>
-                  )}
+                  {instructors.map(u => (
+                    <SelectItem key={u.id} value={u.id} className="text-xs py-2">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-900">{u.name}</span>
+                        <span className="text-[10px] text-slate-500">Giảng viên</span>
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs font-bold">Ngày bắt đầu *</Label>
+              <Label className="text-xs font-bold text-slate-700">Ngày học *</Label>
               <Input 
                 type="date" 
-                className="h-9 text-xs" 
+                className="h-9 text-sm" 
+                value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-bold">Giờ bắt đầu</Label>
+              <Label className="text-xs font-bold text-slate-700">Bắt đầu</Label>
               <Input 
                 type="time" 
-                className="h-9 text-xs" 
+                className="h-9 text-sm" 
                 value={formData.startTime}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const course = courses.find(c => c.id === formData.courseId);
-                  if (course && course.duration && val) {
-                    const [hours, minutes] = val.split(':').map(Number);
-                    const start = new Date();
-                    start.setHours(hours, minutes, 0);
-                    const end = new Date(start.getTime() + course.duration * 60000);
-                    const endTimeStr = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
-                    setFormData(prev => ({ ...prev, startTime: val, endTime: endTimeStr }));
-                  } else {
-                    setFormData(prev => ({ ...prev, startTime: val }));
-                  }
-                }}
+                onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-bold">Giờ kết thúc</Label>
+              <Label className="text-xs font-bold text-slate-700">Kết thúc</Label>
               <Input 
                 type="time" 
-                className="h-9 text-xs" 
+                className="h-9 text-sm" 
                 value={formData.endTime}
                 onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
               />
             </div>
           </div>
 
+          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="space-y-0.5">
+              <Label className="text-xs font-bold text-slate-700">Hình thức học</Label>
+              <p className="text-[10px] text-slate-500">Chọn giữa học trực tuyến hoặc tại lớp</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={cn("text-[10px] font-bold", !formData.isOnline ? "text-orange-600" : "text-slate-400")}>OFFLINE</span>
+              <Switch 
+                checked={formData.isOnline}
+                onCheckedChange={(checked) => setFormData({ ...formData, isOnline: !!checked })}
+              />
+              <span className={cn("text-[10px] font-bold", formData.isOnline ? "text-indigo-600" : "text-slate-400")}>ONLINE</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-700">Sĩ số tối đa</Label>
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-400" />
+                <Input 
+                  type="number" 
+                  className="h-9 text-xs" 
+                  value={formData.maxCapacity}
+                  onChange={(e) => setFormData({ ...formData, maxCapacity: Number(e.target.value) })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-slate-700">
+                {formData.isOnline ? 'Link học trực tuyến' : 'Địa điểm / Phòng học'}
+              </Label>
+              <Input 
+                placeholder={formData.isOnline ? "https://meet.google.com/..." : "VD: Phòng 201, Tầng 2..."}
+                className="h-9 text-xs" 
+                value={formData.meetingUrl}
+                onChange={(e) => setFormData({ ...formData, meetingUrl: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-slate-700">Ghi chú cho buổi học</Label>
+            <Textarea 
+              placeholder="Nhập ghi chú hoặc dặn dò cho học viên/giảng viên..."
+              className="text-xs min-h-[80px]"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            />
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center space-x-2">
               <Checkbox 
-                id="recurring" 
+                id="edit-recurring" 
                 checked={formData.isRecurring}
                 onCheckedChange={(checked) => setFormData({ ...formData, isRecurring: !!checked })}
               />
-              <label htmlFor="recurring" className="text-xs font-bold cursor-pointer flex items-center gap-1.5">
-                <Repeat className="w-3.5 h-3.5 text-indigo-500" /> Thiết lập lịch lặp lại
+              <label htmlFor="edit-recurring" className="text-xs font-bold cursor-pointer flex items-center gap-1.5 text-slate-700">
+                <Repeat className="w-3.5 h-3.5 text-indigo-500" /> Thiết lập lặp lại từ buổi này
               </label>
             </div>
           </div>
@@ -348,55 +388,17 @@ export function CreateScheduleDialog({ open, onOpenChange, onSuccess }: CreateSc
             </div>
           )}
 
-          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
-            <div className="space-y-0.5">
-              <Label className="text-xs font-bold text-slate-700">Hình thức học</Label>
-              <p className="text-[10px] text-slate-500">Chọn giữa học trực tuyến hoặc tại lớp</p>
-            </div>
+          <div className="space-y-2 max-w-[150px]">
+            <Label className="text-xs font-bold">Sĩ số tối đa</Label>
             <div className="flex items-center gap-2">
-              <span className={cn("text-[10px] font-bold", !formData.isOnline ? "text-orange-600" : "text-slate-400")}>OFFLINE</span>
-              <Switch 
-                checked={formData.isOnline}
-                onCheckedChange={(checked) => setFormData({ ...formData, isOnline: !!checked })}
-              />
-              <span className={cn("text-[10px] font-bold", formData.isOnline ? "text-indigo-600" : "text-slate-400")}>ONLINE</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">Sĩ số tối đa</Label>
-              <div className="flex items-center gap-2">
-                <Users className="w-4 h-4 text-slate-400" />
-                <Input 
-                  type="number" 
-                  className="h-9 text-xs" 
-                  value={formData.maxCapacity}
-                  onChange={(e) => setFormData({ ...formData, maxCapacity: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs font-bold">
-                {formData.isOnline ? 'Link học trực tuyến' : 'Địa điểm / Phòng học'}
-              </Label>
+              <Users className="w-4 h-4 text-slate-400" />
               <Input 
-                placeholder={formData.isOnline ? "https://meet.google.com/..." : "VD: Phòng 201, Tầng 2..."}
-                className="h-9 text-xs bg-white border-slate-200" 
-                value={formData.meetingUrl}
-                onChange={(e) => setFormData({ ...formData, meetingUrl: e.target.value })}
+                type="number" 
+                className="h-9 text-xs" 
+                value={formData.maxCapacity}
+                onChange={(e) => setFormData({ ...formData, maxCapacity: Number(e.target.value) })}
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label className="text-xs font-bold text-slate-700">Ghi chú cho buổi học</Label>
-            <Textarea 
-              placeholder="Nhập ghi chú hoặc dặn dò cho học viên/giảng viên..."
-              className="text-xs min-h-[80px]"
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            />
           </div>
         </div>
 
@@ -408,7 +410,7 @@ export function CreateScheduleDialog({ open, onOpenChange, onSuccess }: CreateSc
             disabled={loading}
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-            Tạo Lịch Học
+            Cập nhật
           </Button>
         </DialogFooter>
       </DialogContent>

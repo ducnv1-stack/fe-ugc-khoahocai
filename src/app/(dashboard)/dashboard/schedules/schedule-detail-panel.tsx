@@ -18,13 +18,19 @@ import {
   CheckCircle2, 
   Circle,
   Loader2,
-  Trash2
+  Trash2,
+  MapPin,
+  Link,
+  ExternalLink,
+  Repeat
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { useConfirm } from '@/provider/confirm-provider';
+import { Edit2 } from 'lucide-react';
 
 interface ScheduleDetailPanelProps {
   schedule: any | null;
@@ -32,6 +38,7 @@ interface ScheduleDetailPanelProps {
   onOpenChange: (open: boolean) => void;
   onRefresh: () => void;
   onAddStudent: () => void;
+  onEdit: () => void;
 }
 
 export function ScheduleDetailPanel({ 
@@ -39,9 +46,12 @@ export function ScheduleDetailPanel({
   open, 
   onOpenChange, 
   onRefresh,
-  onAddStudent 
+  onAddStudent,
+  onEdit
 }: ScheduleDetailPanelProps) {
+  const confirm = useConfirm();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   if (!schedule) return null;
 
@@ -63,15 +73,84 @@ export function ScheduleDetailPanel({
     }
   };
 
+  const handleDelete = async () => {
+    const isRecurring = !!schedule.recurringGroupId;
+    const studentCount = schedule.students?.length || 0;
+    const studentWarning = studentCount > 0 
+      ? `Buổi học này đang có ${studentCount} học viên. Việc xóa sẽ làm mất toàn bộ dữ liệu điểm danh liên quan. ` 
+      : "";
+    
+    if (isRecurring) {
+      const wantToDelete = await confirm({
+        title: 'Xác nhận xóa lịch học',
+        description: `${studentWarning}Buổi học này thuộc một chuỗi lặp lại. Bạn có chắc chắn muốn xóa không?`,
+        confirmText: 'Đồng ý xóa',
+        cancelText: 'Hủy',
+        variant: 'destructive'
+      });
+
+      if (!wantToDelete) return;
+
+      const deleteAll = await confirm({
+        title: 'Chọn phạm vi xóa',
+        description: 'Hệ thống hỗ trợ xóa lẻ một buổi hoặc xóa toàn bộ chuỗi. Bạn chọn phương án nào?',
+        confirmText: 'Xóa toàn bộ chuỗi',
+        cancelText: 'Chỉ xóa buổi này',
+        variant: 'destructive'
+      });
+
+      executeDelete(deleteAll);
+    } else {
+      const isConfirmed = await confirm({
+        title: 'Xác nhận xóa lịch học',
+        description: `${studentWarning}Bạn có chắc chắn muốn xóa buổi học này không?`,
+        confirmText: 'Xóa ngay',
+        cancelText: 'Hủy',
+        variant: 'destructive'
+      });
+      if (isConfirmed) executeDelete(false);
+    }
+  };
+
+  const executeDelete = async (series: boolean) => {
+    setIsDeleting(true);
+    try {
+      await api.delete(`/schedules/${schedule.id}${series ? '?series=true' : ''}`);
+      toast.success(series ? 'Đã xóa toàn bộ chuỗi lịch học' : 'Đã xóa buổi học');
+      onOpenChange(false);
+      onRefresh();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Lỗi khi xóa lịch học');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-[400px] sm:w-[500px] flex flex-col p-0">
         <SheetHeader className="p-6 bg-slate-50 border-b">
           <div className="flex justify-between items-start">
             <div>
-              <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100 mb-2">
-                {schedule.course?.code}
-              </Badge>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-100">
+                  {schedule.course?.code}
+                </Badge>
+                {schedule.isOnline ? (
+                  <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 gap-1 h-5 px-1.5 border-blue-200">
+                    <Link className="w-3 h-3" /> Online
+                  </Badge>
+                ) : (
+                  <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 gap-1 h-5 px-1.5 border-orange-200">
+                    <MapPin className="w-3 h-3" /> Offline
+                  </Badge>
+                )}
+                {schedule.recurringGroupId && (
+                  <Badge variant="outline" className="text-[10px] border-amber-200 text-amber-700 bg-amber-50 gap-1.5 h-5 px-1.5">
+                    <Repeat className="w-3 h-3" /> Lịch lặp lại
+                  </Badge>
+                )}
+              </div>
               <SheetTitle className="text-xl font-bold">{schedule.course?.name}</SheetTitle>
             </div>
           </div>
@@ -88,6 +167,40 @@ export function ScheduleDetailPanel({
               <Users className="w-4 h-4 text-slate-400" />
               <span>Giảng viên: <span className="font-bold text-slate-900">{schedule.instructor?.name}</span></span>
             </div>
+            {schedule.meetingUrl && (
+              <div className="flex items-start gap-2 text-indigo-600 font-medium pt-1 border-t border-slate-100 mt-2">
+                {schedule.isOnline ? (
+                  <Link className="w-4 h-4 text-indigo-400 mt-0.5" />
+                ) : (
+                  <MapPin className="w-4 h-4 text-indigo-400 mt-0.5" />
+                )}
+                <div className="flex flex-col">
+                   <span className="text-[10px] text-slate-400 uppercase tracking-tighter">
+                     {schedule.isOnline ? 'Link học trực tuyến' : 'Địa điểm học'}
+                   </span>
+                   {schedule.isOnline ? (
+                     <a 
+                       href={schedule.meetingUrl} 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       className="hover:underline flex items-center gap-1 text-sm"
+                     >
+                       {schedule.meetingUrl}
+                       <ExternalLink className="w-3 h-3" />
+                     </a>
+                   ) : (
+                     <span className="text-sm text-slate-900">{schedule.meetingUrl}</span>
+                   )}
+                </div>
+              </div>
+            )}
+
+            {schedule.notes && (
+              <div className="p-3 bg-amber-50/50 border border-amber-100 rounded-lg mt-2">
+                <span className="text-[10px] text-amber-600 font-bold uppercase block mb-1">Ghi chú buổi học:</span>
+                <p className="text-xs text-slate-600 leading-relaxed italic">"{schedule.notes}"</p>
+              </div>
+            )}
           </div>
         </SheetHeader>
 
@@ -165,11 +278,24 @@ export function ScheduleDetailPanel({
           </div>
         </div>
 
-        <div className="p-6 bg-slate-50 border-t flex justify-between gap-4">
-           <Button variant="outline" className="flex-1 h-10 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100">
-             <Trash2 className="w-4 h-4 mr-2" /> Xóa buổi học
+        <div className="p-6 bg-slate-50 border-t flex justify-between gap-3">
+           <Button 
+             variant="outline" 
+             className="flex-1 h-10 text-rose-500 hover:text-rose-600 hover:bg-rose-50 border-rose-100"
+             onClick={handleDelete}
+             disabled={isDeleting}
+           >
+             {isDeleting ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Trash2 className="w-4 h-4 mr-2" />}
+             Xóa buổi
            </Button>
-           <Button variant="outline" className="flex-1 h-10 border-slate-200" onClick={() => onOpenChange(false)}>
+           <Button 
+             variant="outline" 
+             className="flex-1 h-10 text-indigo-600 border-indigo-100 hover:bg-indigo-50"
+             onClick={onEdit}
+           >
+             <Edit2 className="w-4 h-4 mr-2" /> Sửa thông tin
+           </Button>
+           <Button variant="outline" className="h-10 border-slate-200" onClick={() => onOpenChange(false)}>
              Đóng
            </Button>
         </div>
