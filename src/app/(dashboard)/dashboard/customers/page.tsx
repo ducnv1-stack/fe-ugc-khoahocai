@@ -442,7 +442,10 @@ export default function CustomersPage() {
 
   const leadCustomers = customers.filter((c: any) => c.isLead);
   const regularCustomers = customers.filter((c: any) => !c.isLead);
-  const displayedCustomers = activeTab === 'leads' ? leadCustomers : regularCustomers;
+  const displayedCustomers = 
+    activeTab === 'leads' ? leadCustomers : 
+    activeTab === 'trash' ? customers : 
+    regularCustomers;
 
   return (
     <div className="space-y-4 pb-10">
