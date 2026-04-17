@@ -15,6 +15,8 @@ export interface Customer {
   name: string;
   phone: string;
   email?: string;
+  cccd?: string;
+  address?: string;
   source?: string;
   notes?: string;
   tags: string[];
@@ -41,6 +43,8 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
     name: '',
     phone: '',
     email: '',
+    cccd: '',
+    address: '',
     source: '',
     notes: '',
     assignedSaleId: '',
@@ -85,6 +89,8 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
           name: customer.name,
           phone: customer.phone,
           email: customer.email || '',
+          cccd: customer.cccd || '',
+          address: customer.address || '',
           source: customer.source || '',
           notes: customer.notes || '',
           assignedSaleId: customer.assignedSaleId || '',
@@ -95,6 +101,8 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
           name: '',
           phone: '',
           email: '',
+          cccd: '',
+          address: '',
           source: '',
           notes: '',
           assignedSaleId: user?.id || '',
@@ -128,6 +136,8 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
         const res = await api.post('/orders', {
           customerName: formData.name,
           customerPhone: formData.phone,
+          customerCccd: formData.cccd,
+          customerAddress: formData.address,
           courseIds: [selectedCourseId],
           discountType: 'FIXED',
           discountValue: Number(discountValue),
@@ -304,6 +314,27 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
                 onChange={e => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="0912xxxxxx"
                 required
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-1.5">
+              <Label htmlFor="cust-cccd">Căn cước công dân <span className="text-[10px] text-slate-400 font-normal italic">(Để xuất HĐ)</span></Label>
+              <Input
+                id="cust-cccd"
+                value={formData.cccd}
+                onChange={e => setFormData({ ...formData, cccd: e.target.value })}
+                placeholder="0010xxxxxxxx"
+              />
+            </div>
+            <div className="grid gap-1.5">
+              <Label htmlFor="cust-address">Địa chỉ <span className="text-[10px] text-slate-400 font-normal italic">(Để xuất HĐ)</span></Label>
+              <Input
+                id="cust-address"
+                value={formData.address}
+                onChange={e => setFormData({ ...formData, address: e.target.value })}
+                placeholder="Quận/Huyện, Tỉnh/TP..."
               />
             </div>
           </div>

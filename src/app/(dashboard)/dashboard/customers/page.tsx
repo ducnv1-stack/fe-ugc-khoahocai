@@ -558,8 +558,14 @@ export default function CustomersPage() {
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="font-bold text-[11px] text-slate-900 leading-none">{customer.name}</p>
                               <p className="text-[9px] text-slate-500 flex items-center gap-0.5 ml-1"><Phone className="w-2.5 h-2.5" /> {customer.phone}</p>
+                              <p className="text-[9px] text-slate-500 flex items-center gap-0.5 ml-1" title={customer.cccd || 'Chưa có CCCD'}>
+                                <FileText className="w-2.5 h-2.5" /> CCCD: {customer.cccd || <span className="opacity-50 italic">Trống</span>}
+                              </p>
                             </div>
-                            <div className="flex flex-wrap items-center gap-1">
+                            <div className="text-[9px] text-slate-500 flex items-start gap-0.5 w-full mt-0.5" title={customer.address || 'Chưa có địa chỉ'}>
+                               <MapPin className="w-2.5 h-2.5 shrink-0 mt-0.5" /> <span className="line-clamp-1">{customer.address || <span className="opacity-50 italic">Địa chỉ: Trống</span>}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1 mt-0.5">
                               <Badge variant="outline" className="text-[8px] font-mono py-0 h-3 bg-slate-50 border-slate-200 text-slate-500 leading-none px-1">
                                 {customer.code || 'KH---'}
                               </Badge>
@@ -990,6 +996,9 @@ export default function CustomersPage() {
                                                 className="h-7 text-[10px] w-24 font-bold text-emerald-600"
                                                 value={paidAmountValue}
                                                 onChange={e => setPaidAmountValue(e.target.value === '' ? '' : Number(e.target.value))}
+                                                onKeyDown={e => {
+                                                  if (e.key === 'Enter') handleUpdatePaidAmount(order.id);
+                                                }}
                                                 autoFocus
                                               />
                                               <Button size="icon" className="h-6 w-6 bg-emerald-500" onClick={() => handleUpdatePaidAmount(order.id)} disabled={paidAmountLoading}>
@@ -1000,7 +1009,7 @@ export default function CustomersPage() {
                                               </Button>
                                             </div>
                                           ) : (
-                                            <div className="flex items-center gap-2 group/paid cursor-pointer" onClick={() => { setEditingPaidAmountId(order.id); setPaidAmountValue(order.paidAmount); }}>
+                                            <div className="flex items-center gap-2 group/paid cursor-pointer" onClick={() => { setEditingPaidAmountId(order.id); setPaidAmountValue(order.paidAmount === 0 ? '' : order.paidAmount); }}>
                                               <span className="text-[11px] text-emerald-600 font-bold border-b border-dashed border-transparent group-hover/paid:border-emerald-300">
                                                 {formatCurrency(order.paidAmount)}
                                               </span>
