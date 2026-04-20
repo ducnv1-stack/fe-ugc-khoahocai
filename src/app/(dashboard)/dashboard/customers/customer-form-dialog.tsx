@@ -303,7 +303,6 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
                 value={formData.name}
                 onChange={e => setFormData({ ...formData, name: e.target.value })}
                 placeholder="VD: Nguyễn Văn A"
-                required
               />
             </div>
             <div className="grid gap-1.5">
