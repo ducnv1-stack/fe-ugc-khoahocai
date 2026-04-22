@@ -182,30 +182,38 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
   const handleCopyCardImage = async () => {
     if (!paymentCardRef.current) return;
     try {
-      toast.loading('Đang xử lý ảnh card...');
-      const canvas = await html2canvas(paymentCardRef.current, {
-        scale: 2,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        onclone: (clonedDoc) => {
-          // Loại bỏ tất cả style global để tránh html2canvas cố gắng parse oklch/lab từ Tailwind 4
-          const styles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
-          styles.forEach(s => s.remove());
-        }
-      });
+      toast.loading('Đang chuẩn bị ảnh QR...');
       
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          await navigator.clipboard.write([
-            new ClipboardItem({ [blob.type]: blob })
-          ]);
-          toast.dismiss();
-          toast.success('Đã sao chép ảnh card thanh toán!');
-        }
-      }, 'image/png');
+      // Safari iOS yêu cầu ClipboardItem nhận vào một Promise để không làm mất "user gesture"
+      const blobPromise = (async () => {
+        const canvas = await html2canvas(paymentCardRef.current!, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          onclone: (clonedDoc) => {
+            const styles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+            styles.forEach(s => s.remove());
+          }
+        });
+        return new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas toBlob failed'));
+          }, 'image/png');
+        });
+      })();
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'image/png': blobPromise
+        })
+      ]);
+
+      toast.dismiss();
+      toast.success('Đã sao chép ảnh QR!');
     } catch (err) {
       toast.dismiss();
-      toast.error('Không thể sao chép ảnh card.');
+      toast.error('Không thể sao chép ảnh QR. Hãy kiểm tra quyền truy cập clipboard.');
       console.error(err);
     }
   };
@@ -241,11 +249,10 @@ Nội dung CK: ${memo}`;
           </DialogHeader>
 
           <div className="flex flex-col flex-1 min-h-0 gap-2 pt-2">
-            {/* Vùng chứa QR code: Ưu tiên co lại (shrink), min-h thấp nhất để không bao giờ chống lại khung Dialog */}
-            {/* Khung này sẽ được chụp ảnh - Sử dụng 100% Inline Style và cô lập trong clone để tránh lỗi CSS oklch/lab */}
-            <div ref={paymentCardRef} style={{ backgroundColor: '#ffffff', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px', width: '350px', fontFamily: 'sans-serif' }}>
+            {/* Khung này sẽ được chụp ảnh - Thu gọn kích thước để tránh thanh cuộn */}
+            <div ref={paymentCardRef} style={{ backgroundColor: '#ffffff', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '10px', width: '340px', margin: '0 auto', fontFamily: 'sans-serif' }}>
               <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ backgroundColor: '#ffffff', padding: '8px', borderRadius: '12px', border: '1px solid #e2e8f0', height: '200px', width: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ backgroundColor: '#ffffff', padding: '6px', borderRadius: '10px', border: '1px solid #e2e8f0', height: '140px', width: '140px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <img 
                     src={orderResult?.qrCode} 
                     alt="QR Code" 
@@ -255,27 +262,27 @@ Nội dung CK: ${memo}`;
                 </div>
               </div>
 
-              <div style={{ backgroundColor: '#f8fafc', width: '100%', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
-                <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ backgroundColor: '#f8fafc', width: '100%', borderRadius: '10px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                <div style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#64748b', fontSize: '12px' }}>Ngân hàng:</span>
-                    <span style={{ color: '#1e293b', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}>{bankSettings?.id || '---'}</span>
+                    <span style={{ color: '#64748b', fontSize: '11px' }}>Ngân hàng:</span>
+                    <span style={{ color: '#1e293b', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase' }}>{bankSettings?.id || '---'}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#64748b', fontSize: '12px' }}>Số tài khoản:</span>
-                    <span style={{ color: '#1e293b', fontSize: '12px', fontWeight: 'bold' }}>{bankSettings?.accountNo || '---'}</span>
+                    <span style={{ color: '#64748b', fontSize: '11px' }}>Số tài khoản:</span>
+                    <span style={{ color: '#1e293b', fontSize: '11px', fontWeight: 'bold' }}>{bankSettings?.accountNo || '---'}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <span style={{ color: '#64748b', fontSize: '12px' }}>Chủ tài khoản:</span>
-                    <span style={{ color: '#1e293b', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'right', lineHeight: '1.2', maxWidth: '60%' }}>{bankSettings?.accountName || '---'}</span>
+                    <span style={{ color: '#64748b', fontSize: '11px' }}>Chủ tài khoản:</span>
+                    <span style={{ color: '#1e293b', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'right', lineHeight: '1.2', maxWidth: '65%' }}>{bankSettings?.accountName || '---'}</span>
                   </div>
-                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ color: '#64748b', fontSize: '12px' }}>Số tiền:</span>
-                    <span style={{ color: '#2563eb', fontSize: '18px', fontWeight: 'bold' }}>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)}</span>
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '2px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '11px' }}>Số tiền:</span>
+                    <span style={{ color: '#2563eb', fontSize: '16px', fontWeight: 'bold' }}>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)}</span>
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '4px' }}>
-                    <span style={{ color: '#64748b', fontSize: '12px', paddingTop: '4px' }}>Nội dung CK:</span>
-                    <div style={{ color: '#0f172a', backgroundColor: '#e2e8f0', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', letterSpacing: '0.025em' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '2px' }}>
+                    <span style={{ color: '#64748b', fontSize: '11px', paddingTop: '2px' }}>Nội dung CK:</span>
+                    <div style={{ color: '#0f172a', backgroundColor: '#e2e8f0', padding: '3px 6px', borderRadius: '4px', fontWeight: 'bold', fontSize: '10px', letterSpacing: '0.01em', wordBreak: 'break-all', maxWidth: '70%', textAlign: 'right' }}>
                       {memo}
                     </div>
                   </div>
