@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/provider/auth-provider';
 import { Copy, Check, QrCode, UserPlus, Image as ImageIcon } from 'lucide-react';
+import html2canvas from 'html2canvas';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -60,6 +61,8 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
   const [scheduleList, setScheduleList] = useState<any[]>([]);
   const [selectedScheduleId, setSelectedScheduleId] = useState('');
   const [bankSettings, setBankSettings] = useState<{ id: string; accountNo: string; accountName: string } | null>(null);
+
+  const paymentCardRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -176,29 +179,48 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
     }
   };
 
-  const copyQrToClipboard = async () => {
-    if (!orderResult?.qrCode) return;
-
+  const handleCopyCardImage = async () => {
+    if (!paymentCardRef.current) return;
     try {
-      setCopied(true);
-      // Copy URL to clipboard
-      await navigator.clipboard.writeText(orderResult.qrCode);
-      toast.success('Đã sao chép link mã QR!');
-
-      // Attempt to copy image (Works in modern browsers if site is HTTPS)
-      const response = await fetch(orderResult.qrCode);
-      const blob = await response.blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({
-          [blob.type]: blob
-        })
-      ]);
-      toast.success('Đã sao chép ảnh QR vào bộ nhớ đệm!');
+      toast.loading('Đang xử lý ảnh card...');
+      const canvas = await html2canvas(paymentCardRef.current, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        onclone: (clonedDoc) => {
+          // Loại bỏ tất cả style global để tránh html2canvas cố gắng parse oklch/lab từ Tailwind 4
+          const styles = clonedDoc.querySelectorAll('style, link[rel="stylesheet"]');
+          styles.forEach(s => s.remove());
+        }
+      });
+      
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          await navigator.clipboard.write([
+            new ClipboardItem({ [blob.type]: blob })
+          ]);
+          toast.dismiss();
+          toast.success('Đã sao chép ảnh card thanh toán!');
+        }
+      }, 'image/png');
     } catch (err) {
-      console.warn('Image copy failed, URL copied instead', err);
-    } finally {
-      setTimeout(() => setCopied(false), 2000);
+      toast.dismiss();
+      toast.error('Không thể sao chép ảnh card.');
+      console.error(err);
     }
+  };
+
+  const handleCopyPaymentText = () => {
+    const amount = orderResult?.finalPrice ?? 0;
+    const memo = orderResult?.memo ?? '';
+    const text = `Ngân hàng: ${bankSettings?.id || 'MB'}
+Số tài khoản: ${bankSettings?.accountNo || ''}
+Chủ tài khoản: ${bankSettings?.accountName || ''}
+Số tiền: ${amount}
+Nội dung CK: ${memo}`;
+    
+    navigator.clipboard.writeText(text);
+    toast.success('Đã sao chép nội dung văn bản!');
   };
 
   if (showQRResult) {
@@ -220,61 +242,58 @@ export function CustomerFormDialog({ open, onOpenChange, customer, onSave }: Cus
 
           <div className="flex flex-col flex-1 min-h-0 gap-2 pt-2">
             {/* Vùng chứa QR code: Ưu tiên co lại (shrink), min-h thấp nhất để không bao giờ chống lại khung Dialog */}
-            <div className="flex-1 shrink min-h-[80px] w-full flex items-center justify-center">
-              <div className="bg-white p-1.5 rounded-xl shadow-sm border border-slate-200 h-full max-h-[200px] w-full max-w-[200px] flex items-center justify-center relative">
-                <img src={orderResult?.qrCode} alt="QR Code" className="w-full h-full object-contain" />
+            {/* Khung này sẽ được chụp ảnh - Sử dụng 100% Inline Style và cô lập trong clone để tránh lỗi CSS oklch/lab */}
+            <div ref={paymentCardRef} style={{ backgroundColor: '#ffffff', padding: '16px', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '16px', width: '350px', fontFamily: 'sans-serif' }}>
+              <div style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ backgroundColor: '#ffffff', padding: '8px', borderRadius: '12px', border: '1px solid #e2e8f0', height: '200px', width: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img 
+                    src={orderResult?.qrCode} 
+                    alt="QR Code" 
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                    crossOrigin="anonymous"
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="bg-slate-50 w-full rounded-xl border border-slate-100 shrink-0">
-              <div className="p-3 space-y-2">
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">Ngân hàng:</span>
-                  <span className="font-semibold text-slate-800 uppercase">{bankSettings?.id || '---'}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">Số tài khoản:</span>
-                  <div className="flex items-center gap-1 group">
-                    <span className="font-semibold text-slate-800">{bankSettings?.accountNo || '---'}</span>
-                    <button onClick={() => { navigator.clipboard.writeText(bankSettings?.accountNo || ''); toast.success('Đã sao chép'); }} className="text-slate-400 hover:text-slate-600 transition-colors">
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
+              <div style={{ backgroundColor: '#f8fafc', width: '100%', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '12px' }}>Ngân hàng:</span>
+                    <span style={{ color: '#1e293b', fontSize: '12px', fontWeight: 'bold', textTransform: 'uppercase' }}>{bankSettings?.id || '---'}</span>
                   </div>
-                </div>
-                <div className="flex justify-between items-start text-xs">
-                  <span className="text-slate-500 shrink-0">Chủ tài khoản:</span>
-                  <span className="font-semibold text-slate-800 uppercase text-right leading-tight max-w-[60%]">{bankSettings?.accountName || '---'}</span>
-                </div>
-                <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">Khách hàng:</span>
-                  <span className="font-semibold text-slate-800 truncate pl-4">{orderResult?.customer?.name || '---'}</span>
-                </div>
-                <div className="border-t border-slate-200 pt-2 flex justify-between items-center">
-                  <span className="text-slate-500 text-xs">Số tiền:</span>
-                  <span className="font-bold text-base text-primary">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)}</span>
-                </div>
-                <div className="flex justify-between items-start">
-                  <span className="text-slate-500 text-xs pt-1">Nội dung CK:</span>
-                  <div className="flex items-center gap-1 group">
-                    <span className="font-bold text-slate-900 bg-slate-200/50 px-2 py-0.5 rounded tracking-wide text-xs">{memo}</span>
-                    <button onClick={() => { navigator.clipboard.writeText(memo); toast.success('Đã sao chép nội dung'); }} className="text-slate-400 hover:text-slate-600 transition-colors pt-1">
-                      <Copy className="w-3.5 h-3.5" />
-                    </button>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '12px' }}>Số tài khoản:</span>
+                    <span style={{ color: '#1e293b', fontSize: '12px', fontWeight: 'bold' }}>{bankSettings?.accountNo || '---'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <span style={{ color: '#64748b', fontSize: '12px' }}>Chủ tài khoản:</span>
+                    <span style={{ color: '#1e293b', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'right', lineHeight: '1.2', maxWidth: '60%' }}>{bankSettings?.accountName || '---'}</span>
+                  </div>
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#64748b', fontSize: '12px' }}>Số tiền:</span>
+                    <span style={{ color: '#2563eb', fontSize: '18px', fontWeight: 'bold' }}>{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '4px' }}>
+                    <span style={{ color: '#64748b', fontSize: '12px', paddingTop: '4px' }}>Nội dung CK:</span>
+                    <div style={{ color: '#0f172a', backgroundColor: '#e2e8f0', padding: '4px 8px', borderRadius: '4px', fontWeight: 'bold', fontSize: '12px', letterSpacing: '0.025em' }}>
+                      {memo}
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="shrink-0 space-y-1.5 mt-1">
-              <Button className="w-full h-9 text-xs font-bold" onClick={copyQrToClipboard}>
-                {copied ? <Check className="w-4 h-4 mr-2" /> : <ImageIcon className="w-4 h-4 mr-2" />}
-                Sao chép ảnh QR
+            <div className="grid grid-cols-2 gap-2 mt-2 shrink-0">
+              <Button className="h-9 text-[11px] font-bold" onClick={handleCopyCardImage}>
+                <QrCode className="w-3.5 h-3.5 mr-1.5" /> Sao chép QR
               </Button>
-  
-              <Button variant="ghost" className="w-full h-8 text-xs" onClick={() => { setShowQRResult(false); onOpenChange(false); }}>
-                Đóng
+              <Button variant="outline" className="h-9 text-[11px] border-slate-200 font-bold" onClick={handleCopyPaymentText}>
+                <Copy className="w-3.5 h-3.5 mr-1.5" /> Thông tin CK
               </Button>
             </div>
+            <Button variant="ghost" className="w-full h-8 text-xs mt-2 shrink-0" onClick={() => { setShowQRResult(false); onOpenChange(false); }}>
+              Đóng
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
