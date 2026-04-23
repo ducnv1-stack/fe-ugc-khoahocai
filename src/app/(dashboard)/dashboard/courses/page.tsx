@@ -22,7 +22,12 @@ export default function CoursesPage() {
   const [activeTab, setActiveTab] = useState<'active' | 'trash'>('active');
   const [counts, setCounts] = useState({ active: 0, trash: 0 });
 
-  const canManage = hasPermission('courses.manage');
+  const canManage =
+    hasPermission('courses.manage') ||
+    hasPermission('courses.create') ||
+    hasPermission('courses.update') ||
+    hasPermission('courses.delete') ||
+    hasPermission('courses.restore');
 
   const fetchCourses = async () => {
     try {

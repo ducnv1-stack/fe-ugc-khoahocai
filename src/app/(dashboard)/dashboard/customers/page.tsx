@@ -107,7 +107,12 @@ export default function CustomersPage() {
 
   const paymentCardRef = useRef<HTMLDivElement>(null);
 
-  const canManage = hasPermission('customers.manage');
+  const canManage =
+    hasPermission('customers.manage') ||
+    hasPermission('customers.create') ||
+    hasPermission('customers.update') ||
+    hasPermission('customers.delete') ||
+    hasPermission('customers.restore');
 
   const [page, setPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
