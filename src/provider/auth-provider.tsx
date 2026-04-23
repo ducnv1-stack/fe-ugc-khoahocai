@@ -65,6 +65,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user.permissions) {
       if (user.role === 'ADMIN') return true;
       if (user.role === 'SALE') return ['dashboard.view', 'customers.view', 'orders.view'].includes(code);
+      if (user.role === 'ACCOUNTANT') {
+        return [
+          'dashboard.view',
+          'orders.view',
+          'payments.view',
+          'reports.view',
+          'expenses.view',
+          'expenses.create',
+          'expenses.update',
+          'expenses.delete',
+          'expenses.confirm',
+          'expenses.report.view',
+          'expenses.manage',
+        ].includes(code);
+      }
       return false;
     }
     

@@ -10,6 +10,7 @@ import {
   BookOpen,
   Calendar,
   CreditCard,
+  ReceiptText,
   ShieldCheck,
   LogOut,
   ChevronDown,
@@ -76,6 +77,12 @@ const navItems = [
     href: '/dashboard/reports',
     icon: CreditCard,
     permissions: ['reports.view'],
+  },
+  {
+    title: 'Quản lý chi phí',
+    href: '/dashboard/expenses',
+    icon: ReceiptText,
+    permissions: ['expenses.view', 'expenses.manage', 'expenses.report.view'],
   },
   {
     title: 'Hệ thống',
@@ -356,4 +363,3 @@ function CollapsibleMenuItem({
     </SidebarMenuItem>
   );
 }
-
